@@ -1057,6 +1057,7 @@ XkbRemoveResourceClient(DevicePtr inDev, XID id)
             autoCtrls = interest->autoCtrls;
             autoValues = interest->autoCtrlValues;
             client = interest->client;
+            FreeResource(interest->resource, RT_XKBCLIENT);
             free(interest);
             found = TRUE;
         }
@@ -1068,6 +1069,7 @@ XkbRemoveResourceClient(DevicePtr inDev, XID id)
                 autoCtrls = victim->autoCtrls;
                 autoValues = victim->autoCtrlValues;
                 client = victim->client;
+                FreeResource(victim->resource, RT_XKBCLIENT);
                 free(victim);
                 found = TRUE;
             }
