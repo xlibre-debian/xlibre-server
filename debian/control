@@ -1,7 +1,7 @@
 Source: xlibre-server
 Section: x11
 Priority: optional
-Maintainer: apebl <a@pebl.cc>
+Maintainer: Debian X Strike Force <debian-x@lists.debian.org>
 Build-Depends:
  debhelper-compat (= 12),
  po-debconf,
