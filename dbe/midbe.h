@@ -28,28 +28,18 @@
  *     Header file for users of machine-independent DBE code
  *
  *****************************************************************************/
-
-#ifdef HAVE_DIX_CONFIG_H
-#include <dix-config.h>
-#endif
-
 #ifndef MIDBE_H
 #define MIDBE_H
+
+#include <dix-config.h>
 
 #include "dix/screen_hooks_priv.h"
 #include "include/privates.h"
 
-/* EXTERNS */
-
 extern Bool miDbeInit(ScreenPtr pScreen, DbeScreenPrivPtr pDbeScreenPriv);
 
 extern DevPrivateKeyRec dbeScreenPrivKeyRec;
-
-#define dbeScreenPrivKey (&dbeScreenPrivKeyRec)
-
 extern DevPrivateKeyRec dbeWindowPrivKeyRec;
-
-#define dbeWindowPrivKey (&dbeWindowPrivKeyRec)
 
 extern RESTYPE dbeDrawableResType;
 extern RESTYPE dbeWindowPrivResType;

@@ -52,31 +52,14 @@ SOFTWARE.
 
 #include <dix-config.h>
 
-#include "inputstr.h"           /* DeviceIntPtr      */
 #include <X11/extensions/XI.h>
 #include <X11/extensions/XIproto.h>     /* control constants */
 
-#include "exglobals.h"
-
-#include "chgfctl.h"
+#include "dix/dix_priv.h"
+#include "include/inputstr.h"           /* DeviceIntPtr      */
+#include "Xi/handlers.h"
 
 #define DO_ALL    (-1)
-
-/***********************************************************************
- *
- * This procedure changes the control attributes for an extension device,
- * for clients on machines with a different byte ordering than the server.
- *
- */
-
-int _X_COLD
-SProcXChangeFeedbackControl(ClientPtr client)
-{
-    REQUEST(xChangeFeedbackControlReq);
-    REQUEST_AT_LEAST_SIZE(xChangeFeedbackControlReq);
-    swapl(&stuff->mask);
-    return (ProcXChangeFeedbackControl(client));
-}
 
 /******************************************************************************
  *
@@ -422,6 +405,12 @@ ChangeLedFeedback(ClientPtr client, DeviceIntPtr dev, long unsigned int mask,
 int
 ProcXChangeFeedbackControl(ClientPtr client)
 {
+    REQUEST(xChangeFeedbackControlReq);
+    REQUEST_AT_LEAST_SIZE(xChangeFeedbackControlReq);
+
+    if (client->swapped)
+        swapl(&stuff->mask);
+
     unsigned len;
     DeviceIntPtr dev;
     KbdFeedbackPtr k;
@@ -431,9 +420,6 @@ ProcXChangeFeedbackControl(ClientPtr client)
     BellFeedbackPtr b;
     LedFeedbackPtr l;
     int rc;
-
-    REQUEST(xChangeFeedbackControlReq);
-    REQUEST_AT_LEAST_SIZE(xChangeFeedbackControlReq);
 
     len = client->req_len - bytes_to_int32(sizeof(xChangeFeedbackControlReq));
     rc = dixLookupDevice(&dev, stuff->deviceid, client, DixManageAccess);

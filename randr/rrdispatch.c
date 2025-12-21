@@ -22,6 +22,7 @@
 #include <dix-config.h>
 
 #include "dix/dix_priv.h"
+#include "dix/request_priv.h"
 #include "randr/randrstr_priv.h"
 #include "randr/rrdispatch_priv.h"
 #include "os/fmt.h"
@@ -40,42 +41,50 @@ RRClientKnowsRates(ClientPtr pClient)
 int
 ProcRRQueryVersion(ClientPtr client)
 {
-    xRRQueryVersionReply rep = {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
-    };
     REQUEST(xRRQueryVersionReq);
+    REQUEST_SIZE_MATCH(xRRQueryVersionReq);
+
+    if (client->swapped) {
+        swapl(&stuff->majorVersion);
+        swapl(&stuff->minorVersion);
+    }
+
     rrClientPriv(client);
 
-    REQUEST_SIZE_MATCH(xRRQueryVersionReq);
     pRRClient->major_version = stuff->majorVersion;
     pRRClient->minor_version = stuff->minorVersion;
+
+    xRRQueryVersionReply reply = {
+        .majorVersion = SERVER_RANDR_MAJOR_VERSION,
+        .minorVersion = SERVER_RANDR_MINOR_VERSION
+    };
 
     if (version_compare(stuff->majorVersion, stuff->minorVersion,
                         SERVER_RANDR_MAJOR_VERSION,
                         SERVER_RANDR_MINOR_VERSION) < 0) {
-        rep.majorVersion = stuff->majorVersion;
-        rep.minorVersion = stuff->minorVersion;
-    }
-    else {
-        rep.majorVersion = SERVER_RANDR_MAJOR_VERSION;
-        rep.minorVersion = SERVER_RANDR_MINOR_VERSION;
+        reply.majorVersion = stuff->majorVersion;
+        reply.minorVersion = stuff->minorVersion;
     }
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swapl(&rep.majorVersion);
-        swapl(&rep.minorVersion);
+        swapl(&reply.majorVersion);
+        swapl(&reply.minorVersion);
     }
-    WriteToClient(client, sizeof(xRRQueryVersionReply), &rep);
-    return Success;
+
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }
 
 int
 ProcRRSelectInput(ClientPtr client)
 {
     REQUEST(xRRSelectInputReq);
+    REQUEST_SIZE_MATCH(xRRSelectInputReq);
+
+    if (client->swapped) {
+        swapl(&stuff->window);
+        swaps(&stuff->enable);
+    }
+
     rrClientPriv(client);
     RRTimesPtr pTimes;
     WindowPtr pWin;
@@ -83,7 +92,6 @@ ProcRRSelectInput(ClientPtr client)
     XID clientResource;
     int rc;
 
-    REQUEST_SIZE_MATCH(xRRSelectInputReq);
     rc = dixLookupWindow(&pWin, stuff->window, client, DixReceiveAccess);
     if (rc != Success)
         return rc;

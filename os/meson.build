@@ -13,12 +13,14 @@ srcs_os = [
     'mitauth.c',
     'osinit.c',
     'ospoll.c',
+    'ossock.c',
     'serverlock.c',
     'string.c',
+    'transport.c',
     'utils.c',
     'xdmauth.c',
+    'xhostname.c',
     'xsha1.c',
-    'xstrans.c',
     'xprintf.c',
     'log.c',
 ]
@@ -53,7 +55,7 @@ if conf_data.get('HAVE_SIGACTION').to_int() != 0
     srcs_os += 'busfault.c'
 endif
 
-if get_option('xdmcp')
+if build_xdmcp
     srcs_os += 'xdmcp.c'
 endif
 

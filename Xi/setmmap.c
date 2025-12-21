@@ -56,12 +56,13 @@ SOFTWARE.
 #include <X11/extensions/XI2.h>
 #include <X11/extensions/XIproto.h>
 
+#include "dix/dix_priv.h"
 #include "dix/input_priv.h"
+#include "dix/request_priv.h"
+#include "Xi/handlers.h"
 
 #include "inputstr.h"           /* DeviceIntPtr      */
 #include "exevents.h"
-#include "exglobals.h"
-#include "setmmap.h"
 
 /***********************************************************************
  *
@@ -94,16 +95,10 @@ ProcXSetDeviceModifierMapping(ClientPtr client)
     if (ret != MappingSuccess && ret != MappingBusy && ret != MappingFailed)
         return ret;
 
-    xSetDeviceModifierMappingReply rep = {
-        .repType = X_Reply,
+    xSetDeviceModifierMappingReply reply = {
         .RepType = X_SetDeviceModifierMapping,
-        .sequenceNumber = client->sequence,
         .success = ret,
     };
 
-    if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-    }
-    WriteToClient(client, sizeof(xSetDeviceModifierMappingReply), &rep);
-    return Success;
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }

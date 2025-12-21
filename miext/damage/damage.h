@@ -20,12 +20,12 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifndef _DAMAGE_H_
+#define _DAMAGE_H_
+
 #ifdef HAVE_DIX_CONFIG_H
 #include <dix-config.h>
 #endif
-
-#ifndef _DAMAGE_H_
-#define _DAMAGE_H_
 
 typedef struct _damage *DamagePtr;
 
@@ -53,6 +53,9 @@ typedef void (*DamageScreenDestroyFunc) (DamagePtr);
  * The pointer to this struct can be obtained via DamageGetScreenFuncs().
  * Drivers can inject themselves here, in order to get notified on
  * DamageCreate(), DamageRegister(), DamageUnregister(), DamageDestroy().
+ *
+ * The fields may be assigned to NULL, if no action at all is wanted.
+ * (by default assigned to default implementations)
  *
  * This should ONLY be touched by video drivers, nobody else.
  *

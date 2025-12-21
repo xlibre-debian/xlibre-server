@@ -26,15 +26,13 @@
 #ifndef EXAPRIV_H
 #define EXAPRIV_H
 
-#include <dix-config.h>
-
 #include "exa.h"
 
 #include <X11/X.h>
 #include <X11/Xproto.h>
-#ifdef MITSHM
+#ifdef CONFIG_MITSHM
 #include "shmint.h"
-#endif
+#endif /* CONFIG_MITSHM */
 #include "scrnintstr.h"
 #include "pixmapstr.h"
 #include "windowstr.h"
@@ -59,7 +57,7 @@
 #if DEBUG_TRACE_FALL
 #define EXA_FALLBACK(x)     					\
 do {								\
-	ErrorF("EXA fallback at %s: ", __FUNCTION__);		\
+	ErrorF("EXA fallback at %s: ", __func__);		\
 	ErrorF x;						\
 } while (0)
 

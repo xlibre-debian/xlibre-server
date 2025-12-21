@@ -22,9 +22,10 @@
 #include <dix-config.h>
 
 #include "dix/dix_priv.h"
+#include "dix/request_priv.h"
 #include "dri3/dri3_priv.h"
+#include "present/present_priv.h"
 
-#include "present_priv.h"
 #include "randrstr_priv.h"
 #include <protocol-versions.h>
 
@@ -32,10 +33,7 @@ static int
 proc_present_query_version(ClientPtr client)
 {
     REQUEST(xPresentQueryVersionReq);
-    xPresentQueryVersionReply rep = {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
-        .length = 0,
+    xPresentQueryVersionReply reply = {
         .majorVersion = SERVER_PRESENT_MAJOR_VERSION,
         .minorVersion = SERVER_PRESENT_MINOR_VERSION
     };
@@ -48,20 +46,18 @@ proc_present_query_version(ClientPtr client)
      * higher than the requested version.
      */
 
-    if (rep.majorVersion > stuff->majorVersion ||
-        rep.minorVersion > stuff->minorVersion) {
-        rep.majorVersion = stuff->majorVersion;
-        rep.minorVersion = stuff->minorVersion;
+    if (reply.majorVersion > stuff->majorVersion ||
+        reply.minorVersion > stuff->minorVersion) {
+        reply.majorVersion = stuff->majorVersion;
+        reply.minorVersion = stuff->minorVersion;
     }
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swapl(&rep.majorVersion);
-        swapl(&rep.minorVersion);
+        swapl(&reply.majorVersion);
+        swapl(&reply.minorVersion);
     }
-    WriteToClient(client, sizeof(rep), &rep);
-    return Success;
+
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }
 
 #define VERIFY_FENCE_OR_NONE(fence_ptr, fence_id, client, access) do {  \
@@ -255,11 +251,6 @@ static int
 proc_present_query_capabilities (ClientPtr client)
 {
     REQUEST(xPresentQueryCapabilitiesReq);
-    xPresentQueryCapabilitiesReply rep = {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
-        .length = 0,
-    };
     WindowPtr   window;
     RRCrtcPtr   crtc = NULL;
     int         r;
@@ -277,15 +268,14 @@ proc_present_query_capabilities (ClientPtr client)
         return r;
     }
 
-    rep.capabilities = present_query_capabilities(crtc);
+    xPresentQueryCapabilitiesReply reply = {
+        .capabilities = present_query_capabilities(crtc)
+    };
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swapl(&rep.capabilities);
+        swapl(&reply.capabilities);
     }
-    WriteToClient(client, sizeof(rep), &rep);
-    return Success;
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }
 
 #ifdef DRI3

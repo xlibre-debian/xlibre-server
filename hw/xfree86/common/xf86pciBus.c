@@ -39,6 +39,7 @@
 #include <X11/X.h>
 
 #include "os/log_priv.h"
+#include "os/osdep.h"
 
 #include "os.h"
 #include "Pci.h"
@@ -53,8 +54,6 @@
 
 #define PCI_VENDOR_GENERIC		0x00FF
 
-/* Bus-specific globals */
-int pciSlotClaimed = 0;
 
 #define PCIINFOCLASSES(c) \
     ( (((c) & 0x00ff0000) == (PCI_CLASS_PREHISTORIC << 16)) \
@@ -225,7 +224,6 @@ xf86ClaimPciSlot(struct pci_device *d, DriverPtr drvp,
         p->inUse = FALSE;
         if (dev)
             xf86AddDevToEntity(num, dev);
-        pciSlotClaimed++;
 
         return num;
     }
@@ -247,7 +245,6 @@ xf86UnclaimPciSlot(struct pci_device *d, GDevPtr dev)
         if ((p->bus.type == BUS_PCI) && (p->bus.id.pci == d)) {
             /* Probably the slot should be deallocated? */
             xf86RemoveDevFromEntity(i, dev);
-            pciSlotClaimed--;
             p->bus.type = BUS_NONE;
             return;
         }
@@ -414,23 +411,7 @@ xf86CheckPciMemBase(struct pci_device *pPci, memType base)
 Bool
 xf86CheckPciSlot(const struct pci_device *d)
 {
-    int i;
-
-    for (i = 0; i < xf86NumEntities; i++) {
-        const EntityPtr p = xf86Entities[i];
-
-        if ((p->bus.type == BUS_PCI) && (p->bus.id.pci == d)) {
-            return FALSE;
-        }
-#ifdef XSERVER_PLATFORM_BUS
-        if ((p->bus.type == BUS_PLATFORM) && (p->bus.id.plat->pdev)) {
-            struct pci_device *ud = p->bus.id.plat->pdev;
-            if (MATCH_PCI_DEVICES(ud, d))
-                return FALSE;
-        }
-#endif
-    }
-    return TRUE;
+    return xf86CheckSlot(d, BUS_PCI);
 }
 
 #define END_OF_MATCHES(m) \
@@ -1193,6 +1174,8 @@ xf86VideoPtrToDriverList(struct pci_device *dev, XF86MatchedDrivers *md)
 #if defined(__linux__) || defined(__NetBSD__)
         driverList[idx++] = "nouveau";
 #endif
+        driverList[idx++] = "modesetting";
+        driverList[idx++] = "nvidia";
         driverList[idx++] = "nv";
         break;
     }

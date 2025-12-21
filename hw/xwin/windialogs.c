@@ -230,7 +230,7 @@ winDisplayExitDialog(winPrivScreenPtr pScreenPriv)
 
     /* Count up running clients (clients[0] is serverClient) */
     for (i = 1; i < currentMaxClients; i++)
-        if (clients[i] != NullClient)
+        if (clients[i] != NULL)
             liveClients++;
     /* Count down server internal clients */
     if (pScreenPriv->pScreenInfo->fMultiWindow)
@@ -596,7 +596,7 @@ winAboutDlgProc(HWND hwndDialog, UINT message, WPARAM wParam, LPARAM lParam)
 
         case ID_ABOUT_WEBSITE:
         {
-            const char *pszPath = __VENDORDWEBSUPPORT__;
+            const char *pszPath = "https://www.xlibre.net/";
             INT_PTR iReturn;
 
             iReturn = (INT_PTR) ShellExecute(NULL,

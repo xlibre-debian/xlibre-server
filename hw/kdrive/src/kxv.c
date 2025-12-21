@@ -35,12 +35,13 @@ of the copyright holder.
 
 */
 
-#include <dix-config.h>
+#include <kdrive-config.h>
 
 #include <X11/extensions/Xv.h>
 #include <X11/extensions/Xvproto.h>
 
 #include "dix/screen_hooks_priv.h"
+#include "include/extinit.h"
 #include "Xext/xvdix_priv.h"
 
 #include "kdrive.h"
@@ -99,7 +100,6 @@ static DevPrivateKeyRec KdXVWindowKeyRec;
 #define KdXVWindowKey (&KdXVWindowKeyRec)
 static DevPrivateKey KdXvScreenKey;
 static DevPrivateKeyRec KdXVScreenPrivateKey;
-static unsigned long KdXVGeneration = 0;
 static unsigned long PortResource = 0;
 
 #define GET_XV_SCREEN(pScreen) ((XvScreenPtr) \
@@ -117,9 +117,6 @@ KdXVScreenInit(ScreenPtr pScreen, KdVideoAdaptorPtr adaptors, int num)
     KdXVScreenPtr ScreenPriv;
 
 /*   fprintf(stderr,"KdXVScreenInit initializing %d adaptors\n",num); */
-
-    if (KdXVGeneration != serverGeneration)
-        KdXVGeneration = serverGeneration;
 
     if (noXvExtension)
         return FALSE;

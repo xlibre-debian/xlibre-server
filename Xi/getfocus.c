@@ -52,13 +52,16 @@ SOFTWARE.
 
 #include <dix-config.h>
 
-#include "windowstr.h"          /* focus struct      */
-#include "inputstr.h"           /* DeviceIntPtr      */
 #include <X11/extensions/XI.h>
 #include <X11/extensions/XIproto.h>
-#include "exglobals.h"
 
-#include "getfocus.h"
+#include "dix/dix_priv.h"
+#include "dix/request_priv.h"
+#include "Xi/handlers.h"
+
+#include "windowstr.h"          /* focus struct      */
+#include "inputstr.h"           /* DeviceIntPtr      */
+#include "exglobals.h"
 
 /***********************************************************************
  *
@@ -84,29 +87,25 @@ ProcXGetDeviceFocus(ClientPtr client)
 
     focus = dev->focus;
 
-    xGetDeviceFocusReply rep = {
-        .repType = X_Reply,
+    xGetDeviceFocusReply reply = {
         .RepType = X_GetDeviceFocus,
-        .sequenceNumber = client->sequence,
         .time = focus->time.milliseconds,
         .revertTo = focus->revert,
     };
 
     if (focus->win == NoneWin)
-        rep.focus = None;
+        reply.focus = None;
     else if (focus->win == PointerRootWin)
-        rep.focus = PointerRoot;
+        reply.focus = PointerRoot;
     else if (focus->win == FollowKeyboardWin)
-        rep.focus = FollowKeyboard;
+        reply.focus = FollowKeyboard;
     else
-        rep.focus = focus->win->drawable.id;
+        reply.focus = focus->win->drawable.id;
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swapl(&rep.focus);
-        swapl(&rep.time);
+        swapl(&reply.focus);
+        swapl(&reply.time);
     }
-    WriteToClient(client, sizeof(xGetDeviceFocusReply), &rep);
-    return Success;
+
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }

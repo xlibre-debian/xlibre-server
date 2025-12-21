@@ -55,12 +55,13 @@ SOFTWARE.
 #include <X11/extensions/XI.h>
 #include <X11/extensions/XIproto.h>
 
+#include "dix/dix_priv.h"
 #include "dix/input_priv.h"
+#include "dix/request_priv.h"
+#include "Xi/handlers.h"
 
 #include "inputstr.h"           /* DeviceIntPtr      */
 #include "exevents.h"
-#include "exglobals.h"
-#include "setbmap.h"
 
 /***********************************************************************
  *
@@ -94,17 +95,10 @@ ProcXSetDeviceButtonMapping(ClientPtr client)
     if ((ret != Success) && (ret != MappingBusy))
         return ret;
 
-    xSetDeviceButtonMappingReply rep = {
-        .repType = X_Reply,
+    xSetDeviceButtonMappingReply reply = {
         .RepType = X_SetDeviceButtonMapping,
-        .sequenceNumber = client->sequence,
         .status = (ret == Success ? MappingSuccess : MappingBusy),
     };
 
-    if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-    }
-    WriteToClient(client, sizeof(xSetDeviceButtonMappingReply), &rep);
-
-    return Success;
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }

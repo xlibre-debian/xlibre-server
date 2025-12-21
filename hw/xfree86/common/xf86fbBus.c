@@ -44,36 +44,24 @@
 #include "xf86Bus.h"
 #include "xf86_OSproc.h"
 
-Bool fbSlotClaimed = FALSE;
-
 int
 xf86ClaimFbSlot(DriverPtr drvp, int chipset, GDevPtr dev, Bool active)
 {
     EntityPtr p;
     int num;
 
-#ifdef XSERVER_PLATFORM_BUS
-    if (platformSlotClaimed)
-        return -1;
-#endif
-#ifdef XSERVER_LIBPCIACCESS
-    if (pciSlotClaimed)
-        return -1;
-#endif
-#if defined(__sparc__) || defined (__sparc64__)
-    if (sbusSlotClaimed)
-        return -1;
-#endif
+    if (xf86CheckSlot(dev, BUS_NONE)) {
+        num = xf86AllocateEntity();
+        p = xf86Entities[num];
+        p->driver = drvp;
+        p->chipset = 0;
+        p->bus.type = BUS_NONE;
+        p->active = active;
+        p->inUse = FALSE;
+        xf86AddDevToEntity(num, dev);
 
-    num = xf86AllocateEntity();
-    p = xf86Entities[num];
-    p->driver = drvp;
-    p->chipset = 0;
-    p->bus.type = BUS_NONE;
-    p->active = active;
-    p->inUse = FALSE;
-    xf86AddDevToEntity(num, dev);
-
-    fbSlotClaimed = TRUE;
-    return num;
+        return num;
+    } else {
+        return -1;
+    }
 }

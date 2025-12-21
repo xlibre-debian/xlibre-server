@@ -17,10 +17,7 @@
 
 #ifdef WIN32
 #include <X11/Xwinsock.h>
-#define XSERV_t
-#define TRANS_SERVER
-#define TRANS_REOPEN
-#include <X11/Xtrans/Xtrans.h>
+#include "os/Xtrans.h"
 #endif
 
 #include <X11/Xos.h>
@@ -40,6 +37,7 @@
 
 #include "dix/dix_priv.h"
 #include "os/auth.h"
+#include "os/ossock.h"
 
 #include "misc.h"
 #include "osdep.h"
@@ -48,10 +46,7 @@
 #include "input.h"
 #include "dixstruct.h"
 
-#define XSERV_t
-#define TRANS_SERVER
-#define TRANS_REOPEN
-#include <X11/Xtrans/Xtrans.h>
+#include "os/Xtrans.h"
 
 #ifdef XDMCP
 #undef REQUEST
@@ -218,7 +213,6 @@ XdmcpRegisterManufacturerDisplayID(const char *name, int length)
 }
 
 static unsigned short xdm_udp_port = XDM_UDP_PORT;
-static Bool OneSession = FALSE;
 static const char *xdm_from = NULL;
 
 void
@@ -233,7 +227,6 @@ XdmcpUseMsg(void)
     ErrorF("-port port-num         UDP port number to send messages to\n");
     ErrorF
         ("-from local-address    specify the local address to connect from\n");
-    ErrorF("-once                  Terminate server after one session\n");
     ErrorF("-class display-class   specify display class to send in manage\n");
 #ifdef HASXDMAUTH
     ErrorF("-cookie xdm-auth-bits  specify the magic cookie for XDMCP\n");
@@ -290,10 +283,6 @@ XdmcpOptions(int argc, char **argv, int i)
     }
     if (strcmp(argv[i], "-from") == 0) {
         get_fromaddr_by_name(argc, argv, ++i);
-        return i + 1;
-    }
-    if (strcmp(argv[i], "-once") == 0) {
-        OneSession = TRUE;
         return i + 1;
     }
     if (strcmp(argv[i], "-class") == 0) {
@@ -449,7 +438,6 @@ XdmcpSetAuthentication(const ARRAY8Ptr name)
 
 static ARRAY16 ConnectionTypes;
 static ARRAYofARRAY8 ConnectionAddresses;
-static long xdmcpGeneration;
 
 void
 XdmcpRegisterConnection(int type, const char *address, int addrlen)
@@ -457,11 +445,9 @@ XdmcpRegisterConnection(int type, const char *address, int addrlen)
     int i;
     CARD8 *newAddress;
 
-    if (xdmcpGeneration != serverGeneration) {
-        XdmcpDisposeARRAY16(&ConnectionTypes);
-        XdmcpDisposeARRAYofARRAY8(&ConnectionAddresses);
-        xdmcpGeneration = serverGeneration;
-    }
+    XdmcpDisposeARRAY16(&ConnectionTypes);
+    XdmcpDisposeARRAYofARRAY8(&ConnectionAddresses);
+
     if (xdm_from != NULL) {     /* Only register the requested address */
         const void *regAddr = address;
         const void *fromAddr = NULL;
@@ -618,14 +604,6 @@ XdmcpInit(void)
     }
 }
 
-void
-XdmcpReset(void)
-{
-    state = XDM_INIT_STATE;
-    if (state != XDM_OFF)
-        xdmcp_reset();
-}
-
 /*
  * Called whenever a new connection is created; notices the
  * first connection and saves it to terminate the session
@@ -649,10 +627,7 @@ XdmcpCloseDisplay(int sock)
         || sessionSocket != sock)
         return;
     state = XDM_INIT_STATE;
-    if (OneSession)
-        dispatchException |= DE_TERMINATE;
-    else
-        dispatchException |= DE_RESET;
+    dispatchException |= DE_TERMINATE;
     isItTimeToYield = TRUE;
 }
 
@@ -809,7 +784,7 @@ XdmcpDeadSession(const char *reason)
     ErrorF("XDM: %s, declaring session dead\n", reason);
     state = XDM_INIT_STATE;
     isItTimeToYield = TRUE;
-    dispatchException |= (OneSession ? DE_TERMINATE : DE_RESET);
+    dispatchException |= DE_TERMINATE;
     TimerCancel(xdmcp_timer);
     timeOutRtx = 0;
     send_packet();
@@ -828,14 +803,8 @@ timeout(void)
         return;
     }
     else if (timeOutRtx >= XDM_RTX_LIMIT) {
-        /* Quit if "-once" specified, otherwise reset and try again. */
-        if (OneSession) {
-            dispatchException |= DE_TERMINATE;
-            ErrorF("XDM: too many retransmissions\n");
-        }
-        else {
-            XdmcpDeadSession("too many retransmissions");
-        }
+        dispatchException |= DE_TERMINATE;
+        ErrorF("XDM: too many retransmissions\n");
         return;
     }
 
@@ -1418,9 +1387,7 @@ get_addr_by_name(const char *argtype,
 #ifdef XTHREADS_NEEDS_BYNAMEPARAMS
     _Xgethostbynameparams hparams;
 #endif
-#if defined(WIN32) && defined(TCPCONN)
-    _XSERVTransWSAStartup();
-#endif
+    ossock_init();
     if (!(hep = _XGethostbyname(namestr, hparams))) {
         FatalError("Xserver: %s unknown host: %s\n", argtype, namestr);
     }

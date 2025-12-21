@@ -38,6 +38,7 @@
 
 #include "dix/cursor_priv.h"
 #include "dix/dix_priv.h"
+#include "Xi/handlers.h"
 
 #include "inputstr.h"           /* DeviceIntPtr      */
 #include "windowstr.h"          /* window structure  */
@@ -46,7 +47,6 @@
 #include "exevents.h"
 #include "exglobals.h"
 #include "input.h"
-#include "xichangecursor.h"
 
 /***********************************************************************
  *
@@ -54,27 +54,22 @@
  *
  */
 
-int _X_COLD
-SProcXIChangeCursor(ClientPtr client)
-{
-    REQUEST(xXIChangeCursorReq);
-    REQUEST_SIZE_MATCH(xXIChangeCursorReq);
-    swapl(&stuff->win);
-    swapl(&stuff->cursor);
-    swaps(&stuff->deviceid);
-    return (ProcXIChangeCursor(client));
-}
-
 int
 ProcXIChangeCursor(ClientPtr client)
 {
+    REQUEST(xXIChangeCursorReq);
+    REQUEST_SIZE_MATCH(xXIChangeCursorReq);
+
+    if (client->swapped) {
+        swapl(&stuff->win);
+        swapl(&stuff->cursor);
+        swaps(&stuff->deviceid);
+    }
+
     int rc;
     WindowPtr pWin = NULL;
     DeviceIntPtr pDev = NULL;
     CursorPtr pCursor = NULL;
-
-    REQUEST(xXIChangeCursorReq);
-    REQUEST_SIZE_MATCH(xXIChangeCursorReq);
 
     rc = dixLookupDevice(&pDev, stuff->deviceid, client, DixSetAttrAccess);
     if (rc != Success)

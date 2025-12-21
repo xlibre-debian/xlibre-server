@@ -49,6 +49,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "dix/dix_priv.h"
 #include "dix/screen_hooks_priv.h"
+#include "dix/screenint_priv.h"
+#include "include/extinit.h"
 
 #include "xf86.h"
 #include "xf86drm.h"
@@ -82,7 +84,7 @@ static DevPrivateKeyRec DRIScreenPrivKeyRec;
 static DevPrivateKeyRec DRIWindowPrivKeyRec;
 
 #define DRIWindowPrivKey (&DRIWindowPrivKeyRec)
-static unsigned long DRIGeneration = 0;
+static x_server_generation_t DRIGeneration = 0;
 static unsigned int DRIDrawableValidationStamp = 0;
 
 static RESTYPE DRIDrawablePrivResType;
@@ -471,7 +473,7 @@ DRIScreenInit(ScreenPtr pScreen, DRIInfoPtr pDRIInfo, int *pDRMFD)
             return FALSE;
         }
         DRIDrvMsg(pScreen->myNum, X_INFO, "[drm] mapped SAREA %p to %p\n",
-                  (void *) (uintptr_t) pDRIPriv->hSAREA, pDRIPriv->pSAREA);
+                  (void *) (uintptr_t) pDRIPriv->hSAREA, (void*)pDRIPriv->pSAREA);
         memset(pDRIPriv->pSAREA, 0, pDRIPriv->pDriverInfo->SAREASize);
     }
     else {
@@ -772,13 +774,16 @@ DRICloseScreen(ScreenPtr pScreen)
         if (closeMaster || pDRIPriv->hSAREA != pDRIEntPriv->hLSAREA) {
             DRIDrvMsg(pScreen->myNum, X_INFO,
                       "[drm] unmapping %d bytes of SAREA %p at %p\n",
-                      (int) pDRIInfo->SAREASize, (void *) (uintptr_t) pDRIPriv->hSAREA, pDRIPriv->pSAREA);
+                      (int) pDRIInfo->SAREASize,
+                      (void*) (uintptr_t) pDRIPriv->hSAREA,
+                      (void*) pDRIPriv->pSAREA);
             if (drmUnmap(pDRIPriv->pSAREA, pDRIInfo->SAREASize)) {
                 DRIDrvMsg(pScreen->myNum, X_ERROR,
                           "[drm] unable to unmap %d bytes"
                           " of SAREA %p at %p\n",
                           (int) pDRIInfo->SAREASize,
-                          (void *) (uintptr_t) pDRIPriv->hSAREA, pDRIPriv->pSAREA);
+                          (void*) (uintptr_t) pDRIPriv->hSAREA,
+                          (void*) pDRIPriv->pSAREA);
             }
         }
         else {
@@ -1710,29 +1715,21 @@ DRIDestroyInfoRec(DRIInfoPtr DRIInfo)
 void
 DRIWakeupHandler(void *wakeupData, int result)
 {
-    int i;
-
-    for (i = 0; i < screenInfo.numScreens; i++) {
-        ScreenPtr pScreen = screenInfo.screens[i];
-        DRIScreenPrivPtr pDRIPriv = DRI_SCREEN_PRIV(pScreen);
-
+    DIX_FOR_EACH_SCREEN({
+        DRIScreenPrivPtr pDRIPriv = DRI_SCREEN_PRIV(walkScreen);
         if (pDRIPriv && pDRIPriv->pDriverInfo->wrap.WakeupHandler)
-            (*pDRIPriv->pDriverInfo->wrap.WakeupHandler) (pScreen, result);
-    }
+            (*pDRIPriv->pDriverInfo->wrap.WakeupHandler) (walkScreen, result);
+    });
 }
 
 void
 DRIBlockHandler(void *blockData, void *pTimeout)
 {
-    int i;
-
-    for (i = 0; i < screenInfo.numScreens; i++) {
-        ScreenPtr pScreen = screenInfo.screens[i];
-        DRIScreenPrivPtr pDRIPriv = DRI_SCREEN_PRIV(pScreen);
-
+    DIX_FOR_EACH_SCREEN({
+        DRIScreenPrivPtr pDRIPriv = DRI_SCREEN_PRIV(walkScreen);
         if (pDRIPriv && pDRIPriv->pDriverInfo->wrap.BlockHandler)
-            (*pDRIPriv->pDriverInfo->wrap.BlockHandler) (pScreen, pTimeout);
-    }
+            (*pDRIPriv->pDriverInfo->wrap.BlockHandler) (walkScreen, pTimeout);
+    });
 }
 
 void
@@ -2240,7 +2237,8 @@ DRILock(ScreenPtr pScreen, int flags)
                   "[DRI] Locking deadlock.\n"
                   "\tAlready locked with context %p,\n"
                   "\ttrying to lock with context %p.\n",
-                  pDRIPriv->pLockingContext, (void *) (uintptr_t) pDRIPriv->myContext);
+                  (void*) pDRIPriv->pLockingContext,
+                  (void*) (uintptr_t) pDRIPriv->myContext);
     }
     (*pDRIPriv->pLockRefCount)++;
 }
@@ -2258,7 +2256,8 @@ DRIUnlock(ScreenPtr pScreen)
             DRIDrvMsg(pScreen->myNum, X_ERROR,
                       "[DRI] Unlocking inconsistency:\n"
                       "\tContext %p trying to unlock lock held by context %p\n",
-                      pDRIPriv->pLockingContext, (void *) (uintptr_t) pDRIPriv->myContext);
+                      (void*) pDRIPriv->pLockingContext,
+                      (void*) (uintptr_t) pDRIPriv->myContext);
         }
         (*pDRIPriv->pLockRefCount)--;
     }
@@ -2347,7 +2346,8 @@ DRIAdjustFrame(ScrnInfoPtr pScrn, int x, int y)
 
     if (!pDRIPriv || !pDRIPriv->pSAREA) {
         DRIDrvMsg(pScrn->scrnIndex, X_ERROR, "[DRI] No SAREA (%p %p)\n",
-                  pDRIPriv, pDRIPriv ? pDRIPriv->pSAREA : NULL);
+                  (void*)pDRIPriv,
+                  pDRIPriv ? (void*)pDRIPriv->pSAREA : NULL);
         return;
     }
 

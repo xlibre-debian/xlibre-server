@@ -55,26 +55,10 @@ SOFTWARE.
 #include <X11/extensions/XIproto.h>
 
 #include "dix/resource_priv.h"
+#include "Xi/handlers.h"
 
 #include "inputstr.h"           /* DeviceIntPtr      */
 #include "windowstr.h"          /* window structure  */
-#include "exglobals.h"
-#include "ungrdev.h"
-
-/***********************************************************************
- *
- * Handle requests from a client with a different byte order.
- *
- */
-
-int _X_COLD
-SProcXUngrabDevice(ClientPtr client)
-{
-    REQUEST(xUngrabDeviceReq);
-    REQUEST_SIZE_MATCH(xUngrabDeviceReq);
-    swapl(&stuff->time);
-    return (ProcXUngrabDevice(client));
-}
 
 /***********************************************************************
  *
@@ -85,13 +69,16 @@ SProcXUngrabDevice(ClientPtr client)
 int
 ProcXUngrabDevice(ClientPtr client)
 {
+    REQUEST(xUngrabDeviceReq);
+    REQUEST_SIZE_MATCH(xUngrabDeviceReq);
+
+    if (client->swapped)
+        swapl(&stuff->time);
+
     DeviceIntPtr dev;
     GrabPtr grab;
     TimeStamp time;
     int rc;
-
-    REQUEST(xUngrabDeviceReq);
-    REQUEST_SIZE_MATCH(xUngrabDeviceReq);
 
     rc = dixLookupDevice(&dev, stuff->deviceid, client, DixGetAttrAccess);
     if (rc != Success)

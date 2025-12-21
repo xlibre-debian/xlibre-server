@@ -27,8 +27,6 @@
 #ifndef GLAMOR_PRIV_H
 #define GLAMOR_PRIV_H
 
-#include "dix-config.h"
-
 #include <X11/Xfuncproto.h>
 
 #include "os/bug_priv.h"
@@ -93,20 +91,20 @@ typedef struct glamor_composite_shader {
     GLint source_repeat_mode;
     GLint mask_repeat_mode;
     union {
-        float source_solid_color[4];
+        float solid_color[4];
         struct {
-            PixmapPtr source_pixmap;
-            PicturePtr source;
-        };
-    };
+            PixmapPtr pixmap;
+            PicturePtr picture;
+        } pict;
+    } source;
 
     union {
-        float mask_solid_color[4];
+        float solid_color[4];
         struct {
-            PixmapPtr mask_pixmap;
-            PicturePtr mask;
-        };
-    };
+            PixmapPtr pixmap;
+            PicturePtr picture;
+        } pict;
+    } mask;
 } glamor_composite_shader;
 
 enum ca_state {
@@ -634,7 +632,7 @@ const struct glamor_format *glamor_format_for_pixmap(PixmapPtr pixmap);
 /* Return whether 'picture' is alpha-only */
 static inline Bool glamor_picture_is_alpha(PicturePtr picture)
 {
-    return picture->format == PICT_a1 || picture->format == PICT_a8;
+    return picture->format == PIXMAN_a1 || picture->format == PIXMAN_a8;
 }
 
 /* Return whether 'picture' is storing alpha bits in the red channel */
@@ -725,12 +723,12 @@ PicturePtr glamor_generate_linear_gradient_picture(ScreenPtr screen,
                                                    PicturePtr src_picture,
                                                    int x_source, int y_source,
                                                    int width, int height,
-                                                   PictFormatShort format);
+                                                   pixman_format_code_t format);
 PicturePtr glamor_generate_radial_gradient_picture(ScreenPtr screen,
                                                    PicturePtr src_picture,
                                                    int x_source, int y_source,
                                                    int width, int height,
-                                                   PictFormatShort format);
+                                                   pixman_format_code_t format);
 
 /* glamor_triangles.c */
 void glamor_triangles(CARD8 op,

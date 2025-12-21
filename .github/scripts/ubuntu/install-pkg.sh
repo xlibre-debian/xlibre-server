@@ -41,7 +41,6 @@ apt-get install -y \
 	libnvidia-egl-wayland-dev \
 	libpciaccess-dev \
 	libpixman-1-dev \
-	libselinux1-dev \
 	libspice-protocol-dev \
 	libsystemd-dev \
 	libudev-dev \
@@ -75,6 +74,7 @@ apt-get install -y \
 	libxmu-dev \
 	libxmuu-dev \
 	libxpm-dev \
+	libxrandr-dev \
 	libxrender-dev \
 	libxres-dev \
 	libxshmfence-dev \

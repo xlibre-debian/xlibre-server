@@ -150,7 +150,6 @@
 #include "scrnintstr.h"
 #include "pixmapstr.h"
 #include "pixmap.h"
-#include "region.h"
 #include "gcstruct.h"
 #include "colormap.h"
 #include "miscstruct.h"
@@ -239,11 +238,11 @@ ErrorF (#point ": PROFILEPOINT hit %u times\n", PROFPT##point);\
 
 #define DEFINE_ATOM_HELPER(func,atom_name)			\
 static Atom func (void) {					\
-    static int generation;					\
+    static x_server_generation_t generation;			\
     static Atom atom;						\
     if (generation != serverGeneration) {			\
 	generation = serverGeneration;				\
-	atom = MakeAtom (atom_name, strlen (atom_name), TRUE);	\
+	atom = dixAddAtom(atom_name);				\
     }								\
     return atom;						\
 }
@@ -429,8 +428,6 @@ typedef struct _winPrivScreenRec {
 
     int iConnectedClients;
 
-    CloseScreenProcPtr CloseScreen;
-
     DWORD dwRedMask;
     DWORD dwGreenMask;
     DWORD dwBlueMask;
@@ -523,6 +520,9 @@ extern winScreenInfo *g_ScreenInfo;
 extern miPointerScreenFuncRec g_winPointerCursorFuncs;
 extern DWORD g_dwEvents;
 
+#ifdef HAS_DEVWINDOWS
+extern int g_fdMessageQueue;
+#endif
 extern DevPrivateKeyRec g_iScreenPrivateKeyRec;
 
 #define g_iScreenPrivateKey  	(&g_iScreenPrivateKeyRec)
@@ -539,7 +539,7 @@ extern DevPrivateKeyRec g_iWindowPrivateKeyRec;
 
 #define g_iWindowPrivateKey 	(&g_iWindowPrivateKeyRec)
 
-extern unsigned long g_ulServerGeneration;
+extern x_server_generation_t g_ulServerGeneration;
 extern DWORD g_dwEnginesSupported;
 extern HINSTANCE g_hInstance;
 extern int g_copyROP[];

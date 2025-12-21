@@ -232,6 +232,9 @@ glamor_create_pixmap(ScreenPtr screen, int w, int h, int depth,
     else
         pixmap = fbCreatePixmap(screen, 0, 0, depth, usage);
 
+    if (!pixmap)
+        return NullPixmap;
+
     pixmap_priv = glamor_get_pixmap_private(pixmap);
     BUG_RETURN_VAL(!pixmap_priv, NULL);
 
@@ -551,14 +554,14 @@ glamor_setup_formats(ScreenPtr screen)
      * on GLES2 due to lack of texture swizzle.
      */
     if (glamor_priv->has_rg && glamor_priv->has_texture_swizzle) {
-        glamor_add_format(screen, 1, PICT_a1,
+        glamor_add_format(screen, 1, PIXMAN_a1,
                           GL_R8, GL_RED, GL_UNSIGNED_BYTE, FALSE);
-        glamor_add_format(screen, 8, PICT_a8,
+        glamor_add_format(screen, 8, PIXMAN_a8,
                           GL_R8, GL_RED, GL_UNSIGNED_BYTE, TRUE);
     } else {
-        glamor_add_format(screen, 1, PICT_a1,
+        glamor_add_format(screen, 1, PIXMAN_a1,
                           GL_ALPHA, GL_ALPHA, GL_UNSIGNED_BYTE, FALSE);
-        glamor_add_format(screen, 8, PICT_a8,
+        glamor_add_format(screen, 8, PIXMAN_a8,
                           GL_ALPHA, GL_ALPHA, GL_UNSIGNED_BYTE, TRUE);
     }
 
@@ -572,34 +575,34 @@ glamor_setup_formats(ScreenPtr screen)
          * Instead, just store 16 bits using the trusted 565 path, and
          * disable render accel for now.
          */
-        glamor_add_format(screen, 15, PICT_x1r5g5b5,
+        glamor_add_format(screen, 15, PIXMAN_x1r5g5b5,
                           GL_RGB5_A1, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, TRUE);
     } else {
-        glamor_add_format(screen, 15, PICT_x1r5g5b5,
+        glamor_add_format(screen, 15, PIXMAN_x1r5g5b5,
                           GL_RGBA, GL_BGRA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TRUE);
     }
 
-    glamor_add_format(screen, 16, PICT_r5g6b5,
+    glamor_add_format(screen, 16, PIXMAN_r5g6b5,
                       GL_RGB, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, TRUE);
 
     if (glamor_priv->is_gles) {
         assert(X_BYTE_ORDER == X_LITTLE_ENDIAN);
-        glamor_add_format(screen, 24, PICT_x8r8g8b8,
+        glamor_add_format(screen, 24, PIXMAN_x8r8g8b8,
                           GL_BGRA, GL_BGRA, GL_UNSIGNED_BYTE, TRUE);
-        glamor_add_format(screen, 32, PICT_a8r8g8b8,
+        glamor_add_format(screen, 32, PIXMAN_a8r8g8b8,
                           GL_BGRA, GL_BGRA, GL_UNSIGNED_BYTE, TRUE);
     } else {
-        glamor_add_format(screen, 24, PICT_x8r8g8b8,
+        glamor_add_format(screen, 24, PIXMAN_x8r8g8b8,
                           GL_RGBA, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, TRUE);
-        glamor_add_format(screen, 32, PICT_a8r8g8b8,
+        glamor_add_format(screen, 32, PIXMAN_a8r8g8b8,
                           GL_RGBA, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, TRUE);
     }
 
     if (glamor_priv->is_gles) {
-        glamor_add_format(screen, 30, PICT_x2b10g10r10,
+        glamor_add_format(screen, 30, PIXMAN_x2b10g10r10,
                           GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, TRUE);
     } else {
-        glamor_add_format(screen, 30, PICT_x2r10g10b10,
+        glamor_add_format(screen, 30, PIXMAN_x2r10g10b10,
                           GL_RGB10_A2, GL_BGRA, GL_UNSIGNED_INT_2_10_10_10_REV, TRUE);
     }
 
@@ -610,7 +613,7 @@ glamor_setup_formats(ScreenPtr screen)
         glamor_priv->cbcr_format.internalformat = GL_RG8;
     }
     glamor_priv->cbcr_format.format = GL_RG;
-    glamor_priv->cbcr_format.render_format = PICT_yuv2;
+    glamor_priv->cbcr_format.render_format = PIXMAN_yuy2;
     glamor_priv->cbcr_format.type = GL_UNSIGNED_BYTE;
     glamor_priv->cbcr_format.rendering_supported = TRUE;
     glamor_priv->cbcr_format.texture_only = FALSE;
@@ -862,23 +865,25 @@ glamor_init(ScreenPtr screen, unsigned int flags)
     glamor_priv->saved_procs.bitmap_to_region = screen->BitmapToRegion;
     screen->BitmapToRegion = glamor_bitmap_to_region;
 
-    glamor_priv->saved_procs.composite = ps->Composite;
-    ps->Composite = glamor_composite;
+    if (ps) {
+        glamor_priv->saved_procs.composite = ps->Composite;
+        ps->Composite = glamor_composite;
 
-    glamor_priv->saved_procs.trapezoids = ps->Trapezoids;
-    ps->Trapezoids = glamor_trapezoids;
+        glamor_priv->saved_procs.trapezoids = ps->Trapezoids;
+        ps->Trapezoids = glamor_trapezoids;
 
-    glamor_priv->saved_procs.triangles = ps->Triangles;
-    ps->Triangles = glamor_triangles;
+        glamor_priv->saved_procs.triangles = ps->Triangles;
+        ps->Triangles = glamor_triangles;
 
-    glamor_priv->saved_procs.addtraps = ps->AddTraps;
-    ps->AddTraps = glamor_add_traps;
+        glamor_priv->saved_procs.addtraps = ps->AddTraps;
+        ps->AddTraps = glamor_add_traps;
 
-    glamor_priv->saved_procs.composite_rects = ps->CompositeRects;
-    ps->CompositeRects = glamor_composite_rectangles;
+        glamor_priv->saved_procs.composite_rects = ps->CompositeRects;
+        ps->CompositeRects = glamor_composite_rectangles;
 
-    glamor_priv->saved_procs.glyphs = ps->Glyphs;
-    ps->Glyphs = glamor_composite_glyphs;
+        glamor_priv->saved_procs.glyphs = ps->Glyphs;
+        ps->Glyphs = glamor_composite_glyphs;
+    }
 
     glamor_init_vbo(screen);
 

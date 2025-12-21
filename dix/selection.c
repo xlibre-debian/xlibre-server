@@ -47,6 +47,7 @@ SOFTWARE.
 #include <dix-config.h>
 
 #include "dix/dix_priv.h"
+#include "dix/request_priv.h"
 #include "dix/selection_priv.h"
 
 #include "windowstr.h"
@@ -126,30 +127,26 @@ CallSelectionCallback(Selection * pSel, ClientPtr client,
 void
 DeleteWindowFromAnySelections(WindowPtr pWin)
 {
-    Selection *pSel;
-
-    for (pSel = CurrentSelections; pSel; pSel = pSel->next)
+    for (Selection *pSel = CurrentSelections; pSel; pSel = pSel->next)
         if (pSel->pWin == pWin) {
             CallSelectionCallback(pSel, NULL, SelectionWindowDestroy);
 
             pSel->pWin = (WindowPtr) NULL;
             pSel->window = None;
-            pSel->client = NullClient;
+            pSel->client = NULL;
         }
 }
 
 void
 DeleteClientFromAnySelections(ClientPtr client)
 {
-    Selection *pSel;
-
-    for (pSel = CurrentSelections; pSel; pSel = pSel->next)
+    for (Selection *pSel = CurrentSelections; pSel; pSel = pSel->next)
         if (pSel->client == client) {
             CallSelectionCallback(pSel, NULL, SelectionClientClose);
 
             pSel->pWin = (WindowPtr) NULL;
             pSel->window = None;
-            pSel->client = NullClient;
+            pSel->client = NULL;
         }
 }
 
@@ -163,6 +160,12 @@ ProcSetSelectionOwner(ClientPtr client)
 
     REQUEST(xSetSelectionOwnerReq);
     REQUEST_SIZE_MATCH(xSetSelectionOwnerReq);
+
+    if (client->swapped) {
+        swapl(&stuff->window);
+        swapl(&stuff->selection);
+        swapl(&stuff->time);
+    }
 
     UpdateCurrentTime();
     time = ClientTimeToServerTime(stuff->time);
@@ -235,7 +238,7 @@ ProcSetSelectionOwner(ClientPtr client)
     pSel->lastTimeChanged = time;
     pSel->window = param.owner;
     pSel->pWin = pWin;
-    pSel->client = (pWin ? client : NullClient);
+    pSel->client = (pWin ? client : NULL);
 
     CallSelectionCallback(pSel, client, SelectionSetOwner);
     return Success;
@@ -248,6 +251,9 @@ ProcGetSelectionOwner(ClientPtr client)
 
     REQUEST(xResourceReq);
     REQUEST_SIZE_MATCH(xResourceReq);
+
+    if (client->swapped)
+        swapl(&stuff->id);
 
     /* allow extensions to intercept */
     SelectionFilterParamRec param = {
@@ -265,27 +271,21 @@ ProcGetSelectionOwner(ClientPtr client)
         goto out;
     }
 
-    xGetSelectionOwnerReply rep = {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
-        .length = 0,
-    };
+    xGetSelectionOwnerReply reply = { 0 };
 
     param.status = dixLookupSelection(&pSel, param.selection, param.client, DixGetAttrAccess);
     if (param.status == Success)
-        rep.owner = pSel->window;
+        reply.owner = pSel->window;
     else if (param.status == BadMatch)
-        rep.owner = None;
+        reply.owner = None;
     else
         goto out;
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.owner);
+        swapl(&reply.owner);
     }
 
-    WriteToClient(client, sizeof(rep), &rep);
-    return Success;
+    return X_SEND_REPLY_SIMPLE(client, reply);
 
 out:
     if (param.status != Success)

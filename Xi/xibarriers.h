@@ -1,8 +1,3 @@
-
-#ifdef HAVE_DIX_CONFIG_H
-#include <dix-config.h>
-#endif
-
 #ifndef _XIBARRIERS_H_
 #define _XIBARRIERS_H_
 
@@ -38,9 +33,6 @@ XIDestroyPointerBarrier(ClientPtr client,
 
 Bool XIBarrierInit(void);
 void XIBarrierReset(void);
-
-int SProcXIBarrierReleasePointer(ClientPtr client);
-int ProcXIBarrierReleasePointer(ClientPtr client);
 
 void XIBarrierNewMasterDevice(ClientPtr client, int deviceid);
 void XIBarrierRemoveMasterDevice(ClientPtr client, int deviceid);

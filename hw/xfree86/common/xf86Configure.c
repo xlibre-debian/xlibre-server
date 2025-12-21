@@ -31,6 +31,7 @@
 
 #include "os/ddx_priv.h"
 #include "os/osdep.h"
+#include "os/serverlock.h"
 
 #include "xf86_priv.h"
 #include "xf86Bus.h"
@@ -769,8 +770,6 @@ DoConfigure(void)
         goto bail;
     }
 
-    xf86PostProbe();
-
     for (j = 0; j < xf86NumScreens; j++) {
         xf86Screens[j]->scrnIndex = j;
     }
@@ -832,7 +831,7 @@ DoConfigure(void)
     ErrorF("To test the server, run 'X -config %s'\n\n", filename);
 
  bail:
-    OsCleanup(TRUE);
+    UnlockServer();
     ddxGiveUp(EXIT_ERR_CONFIGURE);
     fflush(stderr);
     exit(0);
@@ -885,7 +884,7 @@ DoShowOptions(void)
         }
     }
  bail:
-    OsCleanup(TRUE);
+    UnlockServer();
     ddxGiveUp(EXIT_ERR_DRIVERS);
     fflush(stderr);
     exit(0);

@@ -33,6 +33,7 @@ from The Open Group.
 #include <X11/extensions/bigreqsproto.h>
 
 #include "dix/dix_priv.h"
+#include "dix/request_priv.h"
 #include "miext/extinit_priv.h"
 
 #include "misc.h"
@@ -44,25 +45,20 @@ from The Open Group.
 static int
 ProcBigReqDispatch(ClientPtr client)
 {
-    REQUEST(xBigReqEnableReq);
-    xBigReqEnableReply rep;
+    X_REQUEST_HEAD_STRUCT(xBigReqEnableReq);
 
     if (stuff->brReqType != X_BigReqEnable)
         return BadRequest;
-    REQUEST_SIZE_MATCH(xBigReqEnableReq);
     client->big_requests = TRUE;
-    rep = (xBigReqEnableReply) {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
-        .length = 0,
+
+    xBigReqEnableReply reply = {
         .max_request_size = maxBigRequestSize
     };
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.max_request_size);
+        swapl(&reply.max_request_size);
     }
-    WriteToClient(client, sizeof(xBigReqEnableReply), &rep);
-    return Success;
+
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }
 
 void

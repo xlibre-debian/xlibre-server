@@ -56,16 +56,20 @@
  * This file contains the external interfaces for the XFree86 configuration
  * file parser.
  */
-#ifdef HAVE_XORG_CONFIG_H
-#include <xorg-config.h>
-#endif
 
 #ifndef _xf86Parser_h_
 #define _xf86Parser_h_
 
+#ifdef HAVE_XORG_CONFIG_H
+#include <xorg-config.h>
+#endif
+
 #include <X11/Xdefs.h>
 #include "xf86Optrec.h"
 #include "list.h"
+
+#include <sys/types.h>
+#include <regex.h>
 
 #define HAVE_PARSER_DECLS
 
@@ -304,9 +308,29 @@ typedef struct {
 
 typedef struct {
     struct xorg_list entry;
-    char **values;
+    struct xorg_list patterns;
     Bool is_negated;
 } xf86MatchGroup;
+
+typedef enum {
+    MATCH_IS_INVALID,
+    MATCH_EXACT,
+    MATCH_EXACT_NOCASE,
+    MATCH_AS_SUBSTRING,
+    MATCH_AS_SUBSTRING_NOCASE,
+    MATCH_AS_FILENAME,
+    MATCH_AS_PATHNAME,
+    MATCH_SUBSTRINGS_SEQUENCE,
+    MATCH_REGEX
+} xf86MatchMode;
+
+typedef struct {
+    struct xorg_list entry;
+    xf86MatchMode mode;
+    Bool is_negated;
+    char *str;
+    regex_t *regex;
+} xf86MatchPattern;
 
 typedef struct {
     GenericListRec list;
@@ -336,8 +360,10 @@ typedef struct {
     GenericListRec list;
     char *identifier;
     char *driver;
+    char *modules;
     char *modulepath;
     struct xorg_list match_driver;
+    struct xorg_list match_layout;
     XF86OptionPtr option_lst;
     char *comment;
 } XF86ConfOutputClassRec, *XF86ConfOutputClassPtr;

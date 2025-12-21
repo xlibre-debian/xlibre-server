@@ -38,6 +38,8 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include "dix/dix_priv.h"
 #include "dix/dixgrabs_priv.h"
 #include "dix/input_priv.h"
+#include "dix/inpututils_priv.h"
+#include "dix/window_priv.h"
 #include "mi/mi_priv.h"
 #include "mi/mipointer_priv.h"
 #include "xkb/xkbsrv_priv.h"
@@ -47,7 +49,6 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include "exevents.h"
 #include "eventstr.h"
 #include "mipointer.h"
-#include "inpututils.h"
 
 #define EXTENSION_EVENT_BASE 64
 

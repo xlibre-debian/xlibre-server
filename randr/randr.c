@@ -28,7 +28,10 @@
 
 #include <dix-config.h>
 
+#include <stdbool.h>
+
 #include "dix/screen_hooks_priv.h"
+#include "dix/screenint_priv.h"
 #include "miext/extinit_priv.h"
 #include "randr/randrstr_priv.h"
 #include "randr/rrdispatch_priv.h"
@@ -67,20 +70,17 @@ RRClientCallback(CallbackListPtr *list, void *closure, void *data)
 
     rrClientPriv(pClient);
     RRTimesPtr pTimes = (RRTimesPtr) (pRRClient + 1);
-    int i;
 
     pRRClient->major_version = 0;
     pRRClient->minor_version = 0;
-    for (i = 0; i < screenInfo.numScreens; i++) {
-        ScreenPtr pScreen = screenInfo.screens[i];
 
-        rrScrPriv(pScreen);
-
+    DIX_FOR_EACH_SCREEN({
+        rrScrPriv(walkScreen);
         if (pScrPriv) {
-            pTimes[i].setTime = pScrPriv->lastSetTime;
-            pTimes[i].configTime = pScrPriv->lastConfigTime;
+            pTimes[walkScreenIdx].setTime = pScrPriv->lastSetTime;
+            pTimes[walkScreenIdx].configTime = pScrPriv->lastConfigTime;
         }
-    }
+    });
 }
 
 static void RRCloseScreen(CallbackListPtr *pcbl, ScreenPtr pScreen, void *unused)
@@ -274,27 +274,30 @@ SRRNotifyEvent(xEvent *from, xEvent *to)
     }
 }
 
-static int RRGeneration;
+static bool initialized = false;
 
 Bool
 RRInit(void)
 {
-    if (RRGeneration != serverGeneration) {
-        if (!RRModeInit())
-            return FALSE;
-        if (!RRCrtcInit())
-            return FALSE;
-        if (!RROutputInit())
-            return FALSE;
-        if (!RRProviderInit())
-            return FALSE;
-        if (!RRLeaseInit())
-            return FALSE;
-        RRGeneration = serverGeneration;
-    }
+    /* prevent double init attempts */
+    if (initialized)
+        return TRUE;
+
+    if (!RRModeInit())
+        return FALSE;
+    if (!RRCrtcInit())
+        return FALSE;
+    if (!RROutputInit())
+        return FALSE;
+    if (!RRProviderInit())
+        return FALSE;
+    if (!RRLeaseInit())
+        return FALSE;
+
     if (!dixRegisterPrivateKey(&rrPrivKeyRec, PRIVATE_SCREEN, 0))
         return FALSE;
 
+    initialized = true;
     return TRUE;
 }
 
@@ -413,7 +416,7 @@ RRExtensionInit(void)
     if (!RREventType)
         return;
     extEntry = AddExtension(RANDR_NAME, RRNumberEvents, RRNumberErrors,
-                            ProcRRDispatch, SProcRRDispatch,
+                            ProcRRDispatch, ProcRRDispatch,
                             NULL, StandardMinorOpcode);
     if (!extEntry)
         return;

@@ -55,13 +55,15 @@ SOFTWARE.
 #include <X11/extensions/XI.h>
 #include <X11/extensions/XIproto.h>
 
+#include "dix/dix_priv.h"
 #include "dix/input_priv.h"
+#include "dix/request_priv.h"
 #include "dix/resource_priv.h"
+#include "Xi/handlers.h"
 
 #include "inputstr.h"           /* DeviceIntPtr      */
 #include "XIstubs.h"
 #include "exglobals.h"
-#include "setmode.h"
 
 /***********************************************************************
  *
@@ -78,10 +80,8 @@ ProcXSetDeviceMode(ClientPtr client)
     REQUEST(xSetDeviceModeReq);
     REQUEST_SIZE_MATCH(xSetDeviceModeReq);
 
-    xSetDeviceModeReply rep = {
-        .repType = X_Reply,
+    xSetDeviceModeReply reply = {
         .RepType = X_SetDeviceMode,
-        .sequenceNumber = client->sequence,
     };
 
     rc = dixLookupDevice(&dev, stuff->deviceid, client, DixSetAttrAccess);
@@ -94,29 +94,23 @@ ProcXSetDeviceMode(ClientPtr client)
         return BadMatch;
 
     if ((dev->deviceGrab.grab) && !SameClient(dev->deviceGrab.grab, client))
-        rep.status = AlreadyGrabbed;
+        reply.status = AlreadyGrabbed;
     else
-        rep.status = SetDeviceMode(client, dev, stuff->mode);
+        reply.status = SetDeviceMode(client, dev, stuff->mode);
 
-    if (rep.status == Success)
+    if (reply.status == Success)
         valuator_set_mode(dev, VALUATOR_MODE_ALL_AXES, stuff->mode);
-    else if (rep.status != AlreadyGrabbed) {
-        switch (rep.status) {
+    else if (reply.status != AlreadyGrabbed) {
+        switch (reply.status) {
         case BadMatch:
         case BadImplementation:
         case BadAlloc:
             break;
         default:
-            rep.status = BadMode;
+            reply.status = BadMode;
         }
-        return rep.status;
+        return reply.status;
     }
 
-    if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-    }
-
-    WriteToClient(client, sizeof(xSetDeviceModeReply), &rep);
-    return Success;
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }

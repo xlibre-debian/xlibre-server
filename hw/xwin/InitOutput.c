@@ -48,6 +48,9 @@ from The Open Group.
 #ifdef DPMSExtension
 #include "dpmsproc.h"
 #endif
+#ifdef __CYGWIN__
+#include <mntent.h>
+#endif
 #ifdef RELOCATE_PROJECTROOT
 #pragma push_macro("Status")
 #undef Status
@@ -61,7 +64,6 @@ typedef WINAPI HRESULT(*SHGETFOLDERPATHPROC) (HWND hwndOwner,
 #endif
 
 #include "winmonitors.h"
-#include "nonsdk_extinit.h"
 #include "pseudoramiX/pseudoramiX.h"
 
 #include "glx_extinit.h"
@@ -140,15 +142,15 @@ void XwinExtensionInit(void)
     }
 #endif
 
-    LoadExtensionList(xwinExtensions, ARRAY_SIZE(xwinExtensions), TRUE);
+    /* need this to prevent compiler warning */
+    if (ARRAY_SIZE(xwinExtensions) > 0)
+        LoadExtensionList(xwinExtensions, ARRAY_SIZE(xwinExtensions), TRUE);
 }
 
-#if defined(DDXBEFORERESET)
 /*
  * Called right before KillAllClients when the server is going to reset,
  * allows us to shutdown our separate threads cleanly.
  */
-
 void
 ddxBeforeReset(void)
 {
@@ -156,7 +158,6 @@ ddxBeforeReset(void)
 
     winClipboardShutdown();
 }
-#endif
 
 #if INPUTTHREAD
 /** This function is called in Xserver/os/inputthread.c when starting
@@ -209,6 +210,17 @@ ddxGiveUp(enum ExitCode error)
     /* Notify the worker threads we're exiting */
     winDeinitMultiWindowWM();
 
+#ifdef HAS_DEVWINDOWS
+    /* Close our handle to our message queue */
+    if (g_fdMessageQueue != WIN_FD_INVALID) {
+        /* Close /dev/windows */
+        close(g_fdMessageQueue);
+
+        /* Set the file handle to invalid */
+        g_fdMessageQueue = WIN_FD_INVALID;
+    }
+#endif
+
     if (!g_fLogInited) {
         g_pszLogFile = LogInit(g_pszLogFile, ".old");
         g_fLogInited = TRUE;
@@ -244,6 +256,95 @@ ddxGiveUp(enum ExitCode error)
 
     winDebug("ddxGiveUp - End\n");
 }
+
+#ifdef __CYGWIN__
+/* hasmntopt is currently not implemented for cygwin */
+static const char *
+winCheckMntOpt(const struct mntent *mnt, const char *opt)
+{
+    const char *s;
+    size_t len;
+
+    if (mnt == NULL)
+        return NULL;
+    if (opt == NULL)
+        return NULL;
+    if (mnt->mnt_opts == NULL)
+        return NULL;
+
+    len = strlen(opt);
+    s = strstr(mnt->mnt_opts, opt);
+    if (s == NULL)
+        return NULL;
+    if ((s == mnt->mnt_opts || *(s - 1) == ',') &&
+        (s[len] == 0 || s[len] == ','))
+        return (char *) opt;
+    return NULL;
+}
+
+static void
+winCheckMount(void)
+{
+    FILE *mnt;
+    struct mntent *ent;
+
+    enum { none = 0, sys_root, user_root, sys_tmp, user_tmp }
+        level = none, curlevel;
+    BOOL binary = TRUE;
+
+    mnt = setmntent("/etc/mtab", "r");
+    if (mnt == NULL) {
+        ErrorF("setmntent failed");
+        return;
+    }
+
+    while ((ent = getmntent(mnt)) != NULL) {
+        BOOL sys = (winCheckMntOpt(ent, "user") != NULL);
+        BOOL root = (strcmp(ent->mnt_dir, "/") == 0);
+        BOOL tmp = (strcmp(ent->mnt_dir, "/tmp") == 0);
+
+        if (sys) {
+            if (root)
+                curlevel = sys_root;
+            else if (tmp)
+                curlevel = sys_tmp;
+            else
+                continue;
+        }
+        else {
+            if (root)
+                curlevel = user_root;
+            else if (tmp)
+                curlevel = user_tmp;
+            else
+                continue;
+        }
+
+        if (curlevel <= level)
+            continue;
+        level = curlevel;
+
+        if ((winCheckMntOpt(ent, "binary") == NULL) &&
+            (winCheckMntOpt(ent, "binmode") == NULL))
+            binary = FALSE;
+        else
+            binary = TRUE;
+    }
+
+    if (endmntent(mnt) != 1) {
+        ErrorF("endmntent failed");
+        return;
+    }
+
+    if (!binary)
+        winMsg(X_WARNING, "/tmp mounted in textmode\n");
+}
+#else
+static void
+winCheckMount(void)
+{
+}
+#endif
 
 #ifdef RELOCATE_PROJECTROOT
 const char *
@@ -541,6 +642,8 @@ OsVendorInit(void)
     if (serverGeneration == 1)
         winLogVersionInfo();
 
+    winCheckMount();
+
     /* Add a default screen if no screens were specified */
     if (g_iNumScreens == 0) {
         winDebug("OsVendorInit - Creating default screen 0\n");
@@ -789,7 +892,7 @@ ddxUseMsg(void)
  */
 
 void
-InitOutput(ScreenInfo * pScreenInfo, int argc, char *argv[])
+InitOutput(int argc, char *argv[])
 {
     int i;
 
@@ -824,15 +927,15 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char *argv[])
     LoadPreferences();
 
     /* Setup global screen info parameters */
-    pScreenInfo->imageByteOrder = IMAGE_BYTE_ORDER;
-    pScreenInfo->bitmapScanlinePad = BITMAP_SCANLINE_PAD;
-    pScreenInfo->bitmapScanlineUnit = BITMAP_SCANLINE_UNIT;
-    pScreenInfo->bitmapBitOrder = BITMAP_BIT_ORDER;
-    pScreenInfo->numPixmapFormats = ARRAY_SIZE(g_PixmapFormats);
+    screenInfo.imageByteOrder = IMAGE_BYTE_ORDER;
+    screenInfo.bitmapScanlinePad = BITMAP_SCANLINE_PAD;
+    screenInfo.bitmapScanlineUnit = BITMAP_SCANLINE_UNIT;
+    screenInfo.bitmapBitOrder = BITMAP_BIT_ORDER;
+    screenInfo.numPixmapFormats = ARRAY_SIZE(g_PixmapFormats);
 
     /* Describe how we want common pixmap formats padded */
     for (i = 0; i < ARRAY_SIZE(g_PixmapFormats); i++) {
-        pScreenInfo->formats[i] = g_PixmapFormats[i];
+        screenInfo.formats[i] = g_PixmapFormats[i];
     }
 
     /* Load pointers to DirectDraw functions */

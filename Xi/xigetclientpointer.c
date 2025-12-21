@@ -31,6 +31,8 @@
 #include <X11/extensions/XI2proto.h>
 
 #include "dix/dix_priv.h"
+#include "dix/request_priv.h"
+#include "Xi/handlers.h"
 
 #include "inputstr.h"           /* DeviceIntPtr      */
 #include "windowstr.h"          /* window structure  */
@@ -38,22 +40,11 @@
 #include "extnsionst.h"
 #include "exevents.h"
 #include "exglobals.h"
-#include "xigetclientpointer.h"
 
 /***********************************************************************
  * This procedure allows a client to query another client's client pointer
  * setting.
  */
-
-int _X_COLD
-SProcXIGetClientPointer(ClientPtr client)
-{
-    REQUEST(xXIGetClientPointerReq);
-    REQUEST_SIZE_MATCH(xXIGetClientPointerReq);
-
-    swapl(&stuff->win);
-    return ProcXIGetClientPointer(client);
-}
 
 int
 ProcXIGetClientPointer(ClientPtr client)
@@ -64,6 +55,9 @@ ProcXIGetClientPointer(ClientPtr client)
     REQUEST(xXIGetClientPointerReq);
     REQUEST_SIZE_MATCH(xXIGetClientPointerReq);
 
+    if (client->swapped)
+        swapl(&stuff->win);
+
     if (stuff->win != None) {
         rc = dixLookupResourceOwner(&winclient, stuff->win, client, DixGetAttrAccess);
 
@@ -73,19 +67,15 @@ ProcXIGetClientPointer(ClientPtr client)
     else
         winclient = client;
 
-    xXIGetClientPointerReply rep = {
-        .repType = X_Reply,
+    xXIGetClientPointerReply reply = {
         .RepType = X_XIGetClientPointer,
-        .sequenceNumber = client->sequence,
         .set = (winclient->clientPtr != NULL),
         .deviceid = (winclient->clientPtr) ? winclient->clientPtr->id : 0
     };
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swaps(&rep.deviceid);
+        swaps(&reply.deviceid);
     }
-    WriteToClient(client, sizeof(xXIGetClientPointerReply), &rep);
-    return Success;
+
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }

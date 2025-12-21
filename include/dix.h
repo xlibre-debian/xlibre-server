@@ -59,8 +59,6 @@ SOFTWARE.
 #define SAMETIME 0
 #define LATER 1
 
-#define NullClient ((ClientPtr) 0)
-
 #define REQUEST(type)                                                   \
     type * stuff = (type *)client->requestBuffer;
 
@@ -92,23 +90,6 @@ SOFTWARE.
             return(BadLength);                                          \
     } while (0)
 
-#define WriteReplyToClient(pClient, size, pReply)                       \
-    do {                                                                \
-        if ((pClient)->swapped)                                         \
-            (*ReplySwapVector[((xReq *)(pClient)->requestBuffer)->reqType]) \
-                (pClient, (int)(size), pReply);                         \
-        else                                                            \
-            WriteToClient(pClient, (int)(size), (pReply));              \
-    } while (0)
-
-#define WriteSwappedDataToClient(pClient, size, pbuf)                   \
-    do {                                                                \
-        if ((pClient)->swapped)                                         \
-            (*(pClient)->pSwapReplyFunc)(pClient, (int)(size), pbuf);   \
-        else                                                            \
-            WriteToClient(pClient, (int)(size), (pbuf));                \
-    } while (0)
-
 typedef struct _TimeStamp *TimeStampPtr;
 
 #ifndef _XTYPEDEF_CLIENTPTR
@@ -117,9 +98,7 @@ typedef struct _Client *ClientPtr;
 #define _XTYPEDEF_CLIENTPTR
 #endif
 
-typedef struct _WorkQueue *WorkQueuePtr;
-
-extern _X_EXPORT ClientPtr clients[MAXCLIENTS];
+extern _X_EXPORT ClientPtr clients[];
 extern _X_EXPORT ClientPtr serverClient;
 extern _X_EXPORT int currentMaxClients;
 

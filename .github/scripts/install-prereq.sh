@@ -9,15 +9,13 @@ cd $X11_BUILD_DIR
 
 build_meson   rendercheck       $(fdo_mirror rendercheck)                  rendercheck-1.6
 if [ "$X11_OS" = "Linux" ]; then
-build_meson   drm               $(fdo_mirror drm)                          libdrm-2.4.121   -Domap=enabled
+build_meson   drm               $(fdo_mirror drm)                          libdrm-2.4.121   -Domap=enabled -Dfreedreno=enabled
 fi
 build_meson   libxcvt           $(fdo_mirror libxcvt)                      libxcvt-0.1.0
-build_ac      xorgproto         $(fdo_mirror xorgproto)                    xorgproto-2024.1
-if [ "$X11_OS" = "Darwin" ]; then
-build_ac      xset              $(fdo_mirror xset)                         xset-1.2.5
-fi
+build_meson   xorgproto         $(fdo_mirror xorgproto)                    xorgproto-2024.1
+
 # really must be build via autoconf instead of meson, otherwise piglit wont find the test programs
-build_ac_xts  xts               $(fdo_mirror xts)                          12a887c2c72c4258962b56ced7b0aec782f1ffed
+build_ac_xts  xts               $(fdo_mirror xts)                          aae51229af810efba24412511f60602fab53eded
 
 clone_source piglit             $(fdo_mirror piglit)                       28d1349844eacda869f0f82f551bcd4ac0c4edfe
 

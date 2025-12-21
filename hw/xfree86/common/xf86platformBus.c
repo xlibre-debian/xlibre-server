@@ -40,6 +40,7 @@
 #include "config/hotplug_priv.h"
 #include "dix/screenint_priv.h"
 #include "randr/randrstr_priv.h"
+#include "os/osdep.h"
 
 #include "os.h"
 #include "../os-support/linux/systemd-logind.h"
@@ -53,11 +54,10 @@
 #include "xf86str.h"
 #include "xf86Bus.h"
 #include "Pci.h"
-#include "xf86platformBus.h"
+#include "xf86platformBus_priv.h"
+#include "xf86Xinput_priv.h"
 #include "xf86Config.h"
 #include "xf86Crtc.h"
-
-int platformSlotClaimed;
 
 int xf86_num_platform_devices;
 
@@ -100,13 +100,11 @@ xf86_get_platform_device_unowned(int index)
 }
 
 struct xf86_platform_device *
-xf86_find_platform_device_by_devnum(int major, int minor)
+xf86_find_platform_device_by_devnum(unsigned int major, unsigned int minor)
 {
-    int i, attr_major, attr_minor;
-
-    for (i = 0; i < xf86_num_platform_devices; i++) {
-        attr_major = xf86_platform_odev_attributes(i)->major;
-        attr_minor = xf86_platform_odev_attributes(i)->minor;
+    for (unsigned int i = 0; i < xf86_num_platform_devices; i++) {
+        unsigned int attr_major = xf86_platform_odev_attributes(i)->major;
+        unsigned int attr_minor = xf86_platform_odev_attributes(i)->minor;
         if (attr_major == major && attr_minor == minor)
             return &xf86_platform_devices[i];
     }
@@ -158,69 +156,26 @@ platform_find_pci_info(struct xf86_platform_device *pd, char *busid)
 }
 
 static Bool
-xf86_check_platform_slot(const struct xf86_platform_device *pd)
-{
-    int i;
-
-    for (i = 0; i < xf86NumEntities; i++) {
-        const EntityPtr u = xf86Entities[i];
-
-        if (pd->pdev && u->bus.type == BUS_PCI &&
-            MATCH_PCI_DEVICES(pd->pdev, u->bus.id.pci)) {
-            return FALSE;
-        }
-        if ((u->bus.type == BUS_PLATFORM) && (pd == u->bus.id.plat)) {
-            return FALSE;
-        }
-    }
-    return TRUE;
-}
-
-static Bool
-MatchToken(const char *value, struct xorg_list *patterns,
-           int (*compare)(const char *, const char *))
-{
-    const xf86MatchGroup *group;
-
-    /* If there are no patterns, accept the match */
-    if (xorg_list_is_empty(patterns))
-        return TRUE;
-
-    /* If there are patterns but no attribute, reject the match */
-    if (!value)
-        return FALSE;
-
-    /*
-     * Otherwise, iterate the list of patterns ensuring each entry has a
-     * match. Each list entry is a separate Match line of the same type.
-     */
-    xorg_list_for_each_entry(group, patterns, entry) {
-        Bool match = FALSE;
-        char *const *cur;
-
-        for (cur = group->values; *cur; cur++) {
-            if ((*compare)(value, *cur) == 0) {
-                match = TRUE;
-                break;
-            }
-        }
-
-        if (!match)
-            return FALSE;
-    }
-
-    /* All the entries in the list matched the attribute */
-    return TRUE;
-}
-
-static Bool
 OutputClassMatches(const XF86ConfOutputClassPtr oclass,
                    struct xf86_platform_device *dev)
 {
     char *driver = dev->attribs->driver;
+    const char *layout;
 
-    if (!MatchToken(driver, &oclass->match_driver, strcmp))
+    if (!MatchAttrToken(driver, &oclass->match_driver))
         return FALSE;
+
+    /* MatchLayout string
+     *
+     * If no Layout section is found, xf86ServerLayout.id becomes "(implicit)"
+     * It is convenient that "" in patterns means "no explicit layout"
+     */
+    if (strcmp(xf86ConfigLayout.id,"(implicit)"))
+        layout = xf86ConfigLayout.id;
+    else
+        layout = "";
+    if (!MatchAttrToken(layout, &oclass->match_layout))
+            return FALSE;
 
     return TRUE;
 }
@@ -236,9 +191,11 @@ xf86OutputClassDriverList(int index, XF86MatchedDrivers *md)
 
             LogMessageVerb(X_INFO, 1, "Applying OutputClass \"%s\" to %s\n",
                            cl->identifier, path);
-            LogMessageVerb(X_NONE, 1, "\tloading driver: %s\n", cl->driver);
-
-            xf86AddMatchedDriver(md, cl->driver);
+            if (cl->driver != NULL && *(cl->driver)) {
+                LogMessageVerb(X_NONE, 1, "\tloading driver: %s\n", cl->driver);
+                xf86AddMatchedDriver(md, cl->driver);
+            } else
+                LogMessageVerb(X_NONE, 1, "\tno driver specified\n");
         }
     }
 }
@@ -300,7 +257,8 @@ xf86platformProbe(void)
     Bool pci = TRUE;
     XF86ConfOutputClassPtr cl, cl_head = (xf86configptr) ?
             xf86configptr->conf_outputclass_lst : NULL;
-    char *old_path, *path = NULL;
+    char *driver_path, *path = NULL;
+    char *curr, *next, *copy;
 
     config_odev_probe(xf86PlatformDeviceProbe);
 
@@ -323,19 +281,85 @@ xf86platformProbe(void)
             if (!OutputClassMatches(cl, &xf86_platform_devices[i]))
                 continue;
 
-            if (cl->modulepath && xf86ModPathFrom != X_CMDLINE) {
-                old_path = path;
-                XNFasprintf(&path, "%s,%s", cl->modulepath,
-                            path ? path : xf86ModulePath);
-                free(old_path);
-                LogMessageVerb(X_CONFIG, 1, "OutputClass \"%s\" ModulePath extended to \"%s\"\n",
-                               cl->identifier, path);
-                LoaderSetPath(path);
+            if (xf86ModPathFrom != X_CMDLINE) {
+                if (cl->driver) {
+                    if (cl->modulepath) {
+                        if (*(cl->modulepath)) {
+                            XNFasprintf(&driver_path, "%s,%s", cl->modulepath, xf86ModulePath);
+                            LogMessageVerb(X_CONFIG, 1, "OutputClass \"%s\" ModulePath for driver %s overridden with \"%s\"\n",
+                                    cl->identifier, cl->driver, driver_path);
+                        } else {
+                            XNFasprintf(&driver_path, "%s", xf86ModulePath);
+                            LogMessageVerb(X_CONFIG, 1, "OutputClass \"%s\" ModulePath for driver %s reset to standard \"%s\"\n",
+                                    cl->identifier, cl->driver, driver_path);
+                        }
+                    } else {
+                        driver_path = NULL;
+                        LogMessageVerb(X_CONFIG, 1, "OutputClass \"%s\" ModulePath for driver %s reset to default\n",
+                                cl->identifier, cl->driver);
+                    }
+                    if (*(cl->driver)) LoaderSetPath(cl->driver, driver_path);
+                    if (cl->modules) {
+                        LogMessageVerb(X_CONFIG, 1, "    and for modules \"%s\" as well\n",
+                                cl->modules);
+                        XNFasprintf(&copy, "%s", cl->modules);
+                        curr = copy;
+                        while ((curr = strtok_r(curr, ",", &next))) {
+                            if (*curr) LoaderSetPath(curr, driver_path);
+                            curr = NULL;
+                        }
+                        free(copy);
+                    }
+                    free(driver_path);
+                }
+                else if (cl->modules) {
+                    if (cl->modulepath) {
+                        if (*(cl->modulepath)) {
+                            XNFasprintf(&driver_path, "%s,%s", cl->modulepath, xf86ModulePath);
+                            LogMessageVerb(X_CONFIG, 1, "OutputClass \"%s\" ModulePath for modules %s overridden with \"%s\"\n",
+                                    cl->identifier, cl->modules, driver_path);
+                        } else {
+                            XNFasprintf(&driver_path, "%s", xf86ModulePath);
+                            LogMessageVerb(X_CONFIG, 1, "OutputClass \"%s\" ModulePath for modules %s reset to standard \"%s\"\n",
+                                    cl->identifier, cl->modules, driver_path);
+                        }
+                    } else {
+                        driver_path = NULL;
+                        LogMessageVerb(X_CONFIG, 1, "OutputClass \"%s\" ModulePath for modules %s reset to default\n",
+                                cl->identifier, cl->modules);
+                    }
+                    XNFasprintf(&copy, "%s", cl->modules);
+                    curr = copy;
+                    while ((curr = strtok_r(curr, ",", &next))) {
+                        if (*curr) LoaderSetPath(curr, driver_path);
+                        curr = NULL;
+                    }
+                    free(copy);
+                } else {
+                        driver_path = path; /* Reuse for temporary storage */
+                        if (*(cl->modulepath)) {
+                            XNFasprintf(&path, "%s,%s", cl->modulepath,
+                                    path ? path : xf86ModulePath);
+                            LogMessageVerb(X_CONFIG, 1, "OutputClass \"%s\" default ModulePath extended to \"%s\"\n",
+                                    cl->identifier, path);
+                        } else {
+                            XNFasprintf(&path, "%s", xf86ModulePath);
+                            LogMessageVerb(X_CONFIG, 1, "OutputClass \"%s\" default ModulePath reset to standard \"%s\"\n",
+                                    cl->identifier, path);
+                        }
+                }
+                /* Otherwise global module search path is left unchanged */
             }
         }
     }
 
-    free(path);
+    if (xf86ModPathFrom != X_CMDLINE) {
+        if (path) {
+            LoaderSetPath(NULL, path);
+            free(path);
+        } else
+            LoaderSetPath(NULL, xf86ModulePath);
+    }
 
     /* First see if there is an OutputClass match marking a device as primary */
     for (i = 0; i < xf86_num_platform_devices; i++) {
@@ -422,7 +446,7 @@ xf86ClaimPlatformSlot(struct xf86_platform_device * d, DriverPtr drvp,
     EntityPtr p = NULL;
     int num;
 
-    if (xf86_check_platform_slot(d)) {
+    if (xf86CheckSlot(d, BUS_PLATFORM)) {
         num = xf86AllocateEntity();
         p = xf86Entities[num];
         p->driver = drvp;
@@ -434,7 +458,6 @@ xf86ClaimPlatformSlot(struct xf86_platform_device * d, DriverPtr drvp,
         if (dev)
             xf86AddDevToEntity(num, dev);
 
-        platformSlotClaimed++;
         return num;
     }
     else
@@ -452,7 +475,6 @@ xf86UnclaimPlatformSlot(struct xf86_platform_device *d, GDevPtr dev)
         if ((p->bus.type == BUS_PLATFORM) && (p->bus.id.plat == d)) {
             if (dev)
                 xf86RemoveDevFromEntity(i, dev);
-            platformSlotClaimed--;
             p->bus.type = BUS_NONE;
             return 0;
         }
@@ -470,27 +492,29 @@ static Bool doPlatformProbe(struct xf86_platform_device *dev, DriverPtr drvp,
     Bool foundScreen = FALSE;
     int entity;
 
-    if (gdev && gdev->screen == 0 && !xf86_check_platform_slot(dev))
-        return FALSE;
-
     entity = xf86ClaimPlatformSlot(dev, drvp, 0,
                                    gdev, gdev ? gdev->active : 0);
 
-    if ((entity == -1) && gdev && (gdev->screen > 0)) {
-        unsigned nent;
+    if ((entity == -1) && gdev) {
+        if (gdev->screen == 0)
+            return FALSE;
+        else { /* gdev->screen > 0 */
+            unsigned nent;
 
-        for (nent = 0; nent < xf86NumEntities; nent++) {
-            EntityPtr pEnt = xf86Entities[nent];
+            for (nent = 0; nent < xf86NumEntities; nent++) {
+                EntityPtr pEnt = xf86Entities[nent];
 
-            if (pEnt->bus.type != BUS_PLATFORM)
-                continue;
-            if (pEnt->bus.id.plat == dev) {
-                entity = nent;
-                xf86AddDevToEntity(nent, gdev);
-                break;
+                if (pEnt->bus.type != BUS_PLATFORM)
+                    continue;
+                if (pEnt->bus.id.plat == dev) {
+                    entity = nent;
+                    xf86AddDevToEntity(nent, gdev);
+                    break;
+                }
             }
         }
     }
+
     if (entity != -1) {
         if ((dev->flags & XF86_PDEV_SERVER_FD) && (!drvp->driverFunc ||
                 !drvp->driverFunc(NULL, SUPPORTS_SERVER_FDS, NULL))) {

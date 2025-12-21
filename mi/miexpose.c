@@ -79,6 +79,9 @@ Equipment Corporation.
 #include <X11/Xprotostr.h>
 
 #include "dix/dix_priv.h"
+#include "dix/screenint_priv.h"
+#include "dix/window_priv.h"
+#include "include/extinit.h"
 #include "mi/mi_priv.h"
 #include "Xext/panoramiX.h"
 #include "Xext/panoramiXsrv.h"
@@ -327,7 +330,7 @@ miSendExposures(WindowPtr pWin, RegionPtr pRgn, int dx, int dy)
         if (!pWin->parent) {
             x = screenInfo.screens[scrnum]->x;
             y = screenInfo.screens[scrnum]->y;
-            pWin = screenInfo.screens[0]->root;
+            pWin = dixGetMasterScreen()->root;
             realWin = pWin->drawable.id;
         }
         else if (scrnum) {
@@ -529,7 +532,7 @@ miPaintWindow(WindowPtr pWin, RegionPtr prgn, int what)
         return;
     }
 
-    ChangeGC(NullClient, pGC, gcmask, gcval);
+    ChangeGC(NULL, pGC, gcmask, gcval);
     ValidateGC(drawable, pGC);
 
     numRects = RegionNumRects(prgn);
@@ -562,9 +565,9 @@ miClearDrawable(DrawablePtr pDraw, GCPtr pGC)
     rect.y = 0;
     rect.width = pDraw->width;
     rect.height = pDraw->height;
-    ChangeGC(NullClient, pGC, GCForeground, &bg);
+    ChangeGC(NULL, pGC, GCForeground, &bg);
     ValidateGC(pDraw, pGC);
     (*pGC->ops->PolyFillRect) (pDraw, pGC, 1, &rect);
-    ChangeGC(NullClient, pGC, GCForeground, &fg);
+    ChangeGC(NULL, pGC, GCForeground, &fg);
     ValidateGC(pDraw, pGC);
 }

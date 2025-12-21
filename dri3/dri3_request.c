@@ -24,6 +24,8 @@
 #include <unistd.h>
 
 #include "dix/dix_priv.h"
+#include "dix/request_priv.h"
+#include "dix/screenint_priv.h"
 #include "os/client_priv.h"
 
 #include "dri3_priv.h"
@@ -65,36 +67,34 @@ proc_dri3_query_version(ClientPtr client)
 {
     REQUEST(xDRI3QueryVersionReq);
 
-    xDRI3QueryVersionReply rep = {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
+    xDRI3QueryVersionReply reply = {
         .majorVersion = SERVER_DRI3_MAJOR_VERSION,
         .minorVersion = SERVER_DRI3_MINOR_VERSION
     };
 
     REQUEST_SIZE_MATCH(xDRI3QueryVersionReq);
 
-    for (int i = 0; i < screenInfo.numScreens; i++) {
-        if (!dri3_screen_can_one_point_two(screenInfo.screens[i])) {
-            rep.minorVersion = 0;
+    DIX_FOR_EACH_SCREEN({
+        if (!dri3_screen_can_one_point_two(walkScreen)) {
+            reply.minorVersion = 0;
             break;
         }
-        if (!dri3_screen_can_one_point_four(screenInfo.screens[i])) {
-            rep.minorVersion = 2;
+        if (!dri3_screen_can_one_point_four(walkScreen)) {
+            reply.minorVersion = 2;
             break;
         }
-    }
+    });
 
-    for (int i = 0; i < screenInfo.numGPUScreens; i++) {
-        if (!dri3_screen_can_one_point_two(screenInfo.gpuscreens[i])) {
-            rep.minorVersion = 0;
+    DIX_FOR_EACH_GPU_SCREEN({
+        if (!dri3_screen_can_one_point_two(walkScreen)) {
+            reply.minorVersion = 0;
             break;
         }
-        if (!dri3_screen_can_one_point_four(screenInfo.gpuscreens[i])) {
-            rep.minorVersion = 2;
+        if (!dri3_screen_can_one_point_four(walkScreen)) {
+            reply.minorVersion = 2;
             break;
         }
-    }
+    });
 
     /* From DRI3 proto:
      *
@@ -103,45 +103,34 @@ proc_dri3_query_version(ClientPtr client)
      * higher than the requested version.
      */
 
-    if (rep.majorVersion > stuff->majorVersion ||
-        (rep.majorVersion == stuff->majorVersion &&
-         rep.minorVersion > stuff->minorVersion)) {
-        rep.majorVersion = stuff->majorVersion;
-        rep.minorVersion = stuff->minorVersion;
+    if (reply.majorVersion > stuff->majorVersion ||
+        (reply.majorVersion == stuff->majorVersion &&
+         reply.minorVersion > stuff->minorVersion)) {
+        reply.majorVersion = stuff->majorVersion;
+        reply.minorVersion = stuff->minorVersion;
     }
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swapl(&rep.majorVersion);
-        swapl(&rep.minorVersion);
+        swapl(&reply.majorVersion);
+        swapl(&reply.minorVersion);
     }
-    WriteToClient(client, sizeof(rep), &rep);
-    return Success;
+
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }
 
 int
 dri3_send_open_reply(ClientPtr client, int fd)
 {
-    xDRI3OpenReply rep = {
-        .type = X_Reply,
+    xDRI3OpenReply reply = {
         .nfd = 1,
-        .sequenceNumber = client->sequence,
     };
-
-    if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-    }
 
     if (WriteFdToClient(client, fd, TRUE) < 0) {
         close(fd);
         return BadAlloc;
     }
 
-    WriteToClient(client, sizeof (rep), &rep);
-
-    return Success;
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }
 
 static int
@@ -269,36 +258,30 @@ proc_dri3_buffer_from_pixmap(ClientPtr client)
         return rc;
     }
 
-    xDRI3BufferFromPixmapReply rep = {
-        .type = X_Reply,
+    xDRI3BufferFromPixmapReply reply = {
         .nfd = 1,
-        .sequenceNumber = client->sequence,
         .width = pixmap->drawable.width,
         .height = pixmap->drawable.height,
         .depth = pixmap->drawable.depth,
         .bpp = pixmap->drawable.bitsPerPixel,
     };
 
-    fd = dri3_fd_from_pixmap(pixmap, &rep.stride, &rep.size);
+    fd = dri3_fd_from_pixmap(pixmap, &reply.stride, &reply.size);
     if (fd < 0)
         return BadPixmap;
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swapl(&rep.size);
-        swaps(&rep.width);
-        swaps(&rep.height);
-        swaps(&rep.stride);
+        swapl(&reply.size);
+        swaps(&reply.width);
+        swaps(&reply.height);
+        swaps(&reply.stride);
     }
     if (WriteFdToClient(client, fd, TRUE) < 0) {
         close(fd);
         return BadAlloc;
     }
 
-    WriteToClient(client, sizeof(rep), &rep);
-
-    return Success;
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }
 
 static int
@@ -331,10 +314,8 @@ static int
 proc_dri3_fd_from_fence(ClientPtr client)
 {
     REQUEST(xDRI3FDFromFenceReq);
-    xDRI3FDFromFenceReply rep = {
-        .type = X_Reply,
+    xDRI3FDFromFenceReply reply = {
         .nfd = 1,
-        .sequenceNumber = client->sequence,
     };
     DrawablePtr drawable;
     int fd;
@@ -354,16 +335,10 @@ proc_dri3_fd_from_fence(ClientPtr client)
     if (fd < 0)
         return BadMatch;
 
-    if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-    }
     if (WriteFdToClient(client, fd, FALSE) < 0)
         return BadAlloc;
 
-    WriteToClient(client, sizeof(rep), &rep);
-
-    return Success;
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }
 
 static int
@@ -377,7 +352,6 @@ proc_dri3_get_supported_modifiers(ClientPtr client)
     CARD32 nwindowmodifiers = 0;
     CARD32 nscreenmodifiers = 0;
     int status;
-    int i;
 
     REQUEST_SIZE_MATCH(xDRI3GetSupportedModifiersReq);
 
@@ -387,45 +361,28 @@ proc_dri3_get_supported_modifiers(ClientPtr client)
     pScreen = window->drawable.pScreen;
 
     dri3_get_supported_modifiers(pScreen, &window->drawable,
-				 stuff->depth, stuff->bpp,
+                                 stuff->depth, stuff->bpp,
                                  &nwindowmodifiers, &window_modifiers,
                                  &nscreenmodifiers, &screen_modifiers);
 
-    const size_t bufsz = (nwindowmodifiers + nscreenmodifiers) * sizeof(CARD64);
-    CARD64 *buf = calloc(1, bufsz);
-    if (!buf) {
-        free(window_modifiers);
-        free(screen_modifiers);
-        return BadAlloc;
-    }
-
-    memcpy(buf, window_modifiers, sizeof(CARD64) * nwindowmodifiers);
-    memcpy(&buf[nwindowmodifiers], screen_modifiers, sizeof(CARD64) * nscreenmodifiers);
+    x_rpcbuf_t rpcbuf = { .swapped = client->swapped, .err_clear = TRUE };
+    x_rpcbuf_write_CARD64s(&rpcbuf, window_modifiers, nwindowmodifiers);
+    x_rpcbuf_write_CARD64s(&rpcbuf, screen_modifiers, nscreenmodifiers);
 
     free(window_modifiers);
     free(screen_modifiers);
 
-    xDRI3GetSupportedModifiersReply rep = {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
+    xDRI3GetSupportedModifiersReply reply = {
         .numWindowModifiers = nwindowmodifiers,
         .numScreenModifiers = nscreenmodifiers,
-        .length = bytes_to_int32(bufsz),
     };
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swapl(&rep.numWindowModifiers);
-        swapl(&rep.numScreenModifiers);
-        for (i = 0; i < nwindowmodifiers+nscreenmodifiers; i++)
-            swapll(&buf[i]);
+        swapl(&reply.numWindowModifiers);
+        swapl(&reply.numScreenModifiers);
     }
 
-    WriteToClient(client, sizeof(rep), &rep);
-    WriteToClient(client, bufsz, buf);
-    free(buf);
-    return Success;
+    return X_SEND_REPLY_WITH_RPCBUF(client, reply, rpcbuf);
 }
 
 static int
@@ -554,19 +511,12 @@ proc_dri3_buffers_from_pixmap(ClientPtr client)
         }
     }
 
-    const size_t bufsz = num_fds * 2 * sizeof(CARD32);
-    CARD32 *buf = calloc(1, bufsz);
-    if (!buf)
-        return BadAlloc;
+    x_rpcbuf_t rpcbuf = { .swapped = client->swapped, .err_clear = TRUE };
+    x_rpcbuf_write_CARD32s(&rpcbuf, (CARD32*)strides, num_fds);
+    x_rpcbuf_write_CARD32s(&rpcbuf, (CARD32*)offsets, num_fds);
 
-    memcpy(buf, strides, num_fds * sizeof(CARD32));
-    memcpy(&buf[num_fds], offsets, num_fds * sizeof(CARD32));
-
-    xDRI3BuffersFromPixmapReply rep = {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
+    xDRI3BuffersFromPixmapReply reply = {
         .nfd = num_fds,
-        .length = bytes_to_int32(bufsz),
         .width = pixmap->drawable.width,
         .height = pixmap->drawable.height,
         .depth = pixmap->drawable.depth,
@@ -575,19 +525,12 @@ proc_dri3_buffers_from_pixmap(ClientPtr client)
     };
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swaps(&rep.width);
-        swaps(&rep.height);
-        swapll(&rep.modifier);
-        for (i = 0; i < num_fds * 2; i++)
-            swapl(&buf[i]);
+        swaps(&reply.width);
+        swaps(&reply.height);
+        swapll(&reply.modifier);
     }
 
-    WriteToClient(client, sizeof(rep), &rep);
-    WriteToClient(client, bufsz, buf);
-    free(buf);
-    return Success;
+    return X_SEND_REPLY_WITH_RPCBUF(client, reply, rpcbuf);
 }
 
 static int

@@ -31,12 +31,12 @@
  * video drivers must not include this file.
  */
 
+#ifndef _XF86_BUS_H
+#define _XF86_BUS_H
+
 #ifdef HAVE_XORG_CONFIG_H
 #include <xorg-config.h>
 #endif
-
-#ifndef _XF86_BUS_H
-#define _XF86_BUS_H
 
 #include "xf86pciBus.h"
 #if defined(__sparc__) || defined(__sparc)
@@ -67,11 +67,6 @@ extern BusRec primaryBus;
 int xf86AllocateEntity(void);
 BusType StringToBusType(const char *busID, const char **retID);
 
-extern Bool fbSlotClaimed;
-extern Bool sbusSlotClaimed;
-extern int platformSlotClaimed;
-extern int pciSlotClaimed;
-
 Bool xf86ComparePciBusString(const char *busID, int bus, int device, int func);
 Bool xf86DriverHasEntities(DriverPtr drvp);
 void xf86RemoveEntityFromScreen(ScrnInfoPtr pScrn, int entityIndex);
@@ -83,10 +78,10 @@ _X_EXPORT /* only for internal int10 module - not supposed to be used by OOT dri
 ScrnInfoPtr xf86FindScreenForEntity(int entityIndex);
 
 Bool xf86BusConfig(void);
-void xf86PostProbe(void);
 void xf86ClearEntityListForScreen(ScrnInfoPtr pScrn);
 void xf86RemoveDevFromEntity(int entityIndex, GDevPtr dev);
 
 Bool xf86CallDriverProbe(struct _DriverRec *drv, Bool detect_only);
 
+Bool xf86CheckSlot(const void *ptr, BusType type);
 #endif                          /* _XF86_BUS_H */

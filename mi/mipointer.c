@@ -55,7 +55,9 @@ in this Software without prior written authorization from The Open Group.
 #include   "dix/cursor_priv.h"
 #include   "dix/dix_priv.h"
 #include   "dix/input_priv.h"
+#include   "dix/inpututils_priv.h"
 #include   "dix/screen_hooks_priv.h"
+#include   "include/extinit.h"
 #include   "mi/mi_priv.h"
 #include   "mi/mipointer_priv.h"
 
@@ -67,7 +69,6 @@ in this Software without prior written authorization from The Open Group.
 #include   "cursorstr.h"
 #include   "dixstruct.h"
 #include   "inputstr.h"
-#include   "inpututils.h"
 #include   "eventstr.h"
 
 typedef struct {

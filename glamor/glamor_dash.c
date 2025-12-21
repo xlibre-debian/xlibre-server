@@ -110,8 +110,7 @@ glamor_get_dash_pixmap(GCPtr gc)
         ChangeGCVal     changes;
 
         changes.val = pixel;
-        (void) ChangeGC(NullClient, scratch_gc,
-                        GCForeground, &changes);
+        (void) ChangeGC(NULL, scratch_gc, GCForeground, &changes);
         ValidateGC(&pixmap->drawable, scratch_gc);
         rect.x = offset;
         rect.y = 0;
@@ -152,7 +151,7 @@ glamor_dash_setup(DrawablePtr drawable, GCPtr gc)
     dash_pixmap = glamor_get_dash_pixmap(gc);
     dash_priv = glamor_get_pixmap_private(dash_pixmap);
 
-    if (!GLAMOR_PIXMAP_PRIV_HAS_FBO(dash_priv))
+    if (!dash_priv || !GLAMOR_PIXMAP_PRIV_HAS_FBO(dash_priv))
         goto bail;
 
     glamor_make_current(glamor_priv);

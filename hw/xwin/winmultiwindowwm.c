@@ -37,6 +37,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#ifdef __CYGWIN__
+#include <sys/select.h>
+#endif
 #include <fcntl.h>
 #include <setjmp.h>
 #define HANDLE void *
@@ -84,6 +87,9 @@ extern void winUpdateRgnMultiWindow(WindowPtr pWin);
 
 #define WIN_CONNECT_RETRIES	5
 #define WIN_CONNECT_DELAY	5
+#ifdef HAS_DEVWINDOWS
+#define WIN_MSG_QUEUE_FNAME	"/dev/windows"
+#endif
 
 /*
  * Local structures
@@ -1715,7 +1721,7 @@ winApplyHints(WMInfoPtr pWMInfo, xcb_window_t iWindow, HWND hWnd, HWND * zstyle)
     static xcb_atom_t hiddenState, fullscreenState, belowState, aboveState,
         skiptaskbarState;
     static xcb_atom_t splashType;
-    static int generation;
+    static x_server_generation_t generation;
 
     unsigned long hint = 0, maxmin = 0;
     unsigned long style, exStyle;
@@ -1861,11 +1867,11 @@ winApplyHints(WMInfoPtr pWMInfo, xcb_window_t iWindow, HWND hWnd, HWND * zstyle)
 #define APPLICATION_ID_FORMAT	"%s.xwin.%s"
 #define APPLICATION_ID_UNKNOWN "unknown"
         if (res_class) {
-            asprintf(&application_id, APPLICATION_ID_FORMAT, XVENDORNAME,
+            asprintf(&application_id, APPLICATION_ID_FORMAT, "XLibre",
                      res_class);
         }
         else {
-            asprintf(&application_id, APPLICATION_ID_FORMAT, XVENDORNAME,
+            asprintf(&application_id, APPLICATION_ID_FORMAT, "XLibre",
                      APPLICATION_ID_UNKNOWN);
         }
         winSetAppUserModelID(hWnd, application_id);

@@ -37,6 +37,7 @@
 #include "dix/eventconvert.h"
 #include "dix/exevents_priv.h"
 #include "dix/input_priv.h"
+#include "dix/inpututils_priv.h"
 #include "mi/mi_priv.h"
 #include "os/fmt.h"
 
@@ -46,7 +47,6 @@
 #include "inputstr.h"
 #include "exglobals.h"
 #include "eventstr.h"
-#include "inpututils.h"
 #include "assert.h"
 
 #include "tests-common.h"
@@ -239,7 +239,7 @@ dix_check_grab_values(void)
 static void
 dix_event_to_core(int type)
 {
-    DeviceEvent ev = {};
+    DeviceEvent ev = { 0 };
     xEvent *core;
     int time;
     int x, y;

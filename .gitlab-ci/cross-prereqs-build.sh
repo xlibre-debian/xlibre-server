@@ -61,7 +61,6 @@ build_fdo 'xorgproto' 'xorgproto-2024.1' '--datadir=/lib'
 build_fdo 'libXau' 'libXau-1.0.9'
 build_fdo 'xcbproto' 'xcb-proto-1.14.1'
 build_fdo 'libxcb' 'libxcb-1.14'
-build_fdo 'libxtrans' 'xtrans-1.4.0'
 # the default value of keysymdefdir is taken from the includedir variable for
 # xproto, which isn't adjusted by pkg-config for the sysroot
 # Using -fcommon to address build failure when cross-compiling for windows.
@@ -73,7 +72,7 @@ build_fdo 'libxkbfile' 'libxkbfile-1.1.0'
 build_fdo 'freetype' 'VER-2-10-1' "--build=$(cc -dumpmachine) --with-png=no"
 build_fdo 'font-util' 'font-util-1.3.2'
 build_fdo 'libfontenc' 'libfontenc-1.1.4'
-build_fdo 'libXfont'  'libXfont2-2.0.3'
+build_fdo 'libXfont' 'libXfont2-2.0.3'
 build_fdo 'libXdmcp' 'libXdmcp-1.1.3'
 build_fdo 'libXfixes' 'libXfixes-5.0.3'
 build_fdo 'libxcb-util' 'xcb-util-0.4.1-gitlab'

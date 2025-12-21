@@ -42,12 +42,15 @@
 int g_iNumScreens = 0;
 winScreenInfo *g_ScreenInfo = 0;
 
+#ifdef HAS_DEVWINDOWS
+int g_fdMessageQueue = WIN_FD_INVALID;
+#endif
 DevPrivateKeyRec g_iScreenPrivateKeyRec;
 DevPrivateKeyRec g_iCmapPrivateKeyRec;
 DevPrivateKeyRec g_iGCPrivateKeyRec;
 DevPrivateKeyRec g_iPixmapPrivateKeyRec;
 DevPrivateKeyRec g_iWindowPrivateKeyRec;
-unsigned long g_ulServerGeneration = 0;
+x_server_generation_t g_ulServerGeneration = 0;
 DWORD g_dwEnginesSupported = 0;
 HINSTANCE g_hInstance = 0;
 HWND g_hDlgDepthChange = NULL;

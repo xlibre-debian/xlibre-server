@@ -7,6 +7,7 @@
 
 #include <X11/Xdefs.h>
 
+#include "include/callback.h"
 #include "include/dix.h"
 #include "include/resource.h"
 
@@ -20,7 +21,7 @@
 #define SERVER_BIT           (Mask)0x40000000        /* use illegal bit */
 
 /* client field */
-#define RESOURCE_CLIENT_MASK   (((1 << ResourceClientBits()) - 1) << CLIENTOFFSET)
+#define RESOURCE_CLIENT_MASK   ((((1u << ResourceClientBits())) - 1) << CLIENTOFFSET)
 
 /* bits and fields within a resource id */
 #define RESOURCE_AND_CLIENT_COUNT   29  /* 29 bits for XIDs */
@@ -30,7 +31,7 @@
 #define CLIENT_BITS(id) ((id) & RESOURCE_CLIENT_MASK)
 
 /* resource field */
-#define RESOURCE_ID_MASK        ((1 << CLIENTOFFSET) - 1)
+#define RESOURCE_ID_MASK        ((1u << CLIENTOFFSET) - 1)
 
 /*
  * @brief retrieve client that owns given window
@@ -39,7 +40,7 @@
  * (every client so is assigned a range of XIDs it may use for resource creation)
  *
  * @param WindowPtr to the window whose client shall be retrieved
- * @return pointer to ClientRec structure or NullClient (NULL)
+ * @return pointer to ClientRec structure or NULL
  */
 ClientPtr dixClientForWindow(WindowPtr pWin);
 
@@ -50,7 +51,7 @@ ClientPtr dixClientForWindow(WindowPtr pWin);
  * (every client so is assigned a range of XIDs it may use for resource creation)
  *
  * @param GrabPtr to the grab whose owning client shall be retrieved
- * @return pointer to ClientRec structure or NullClient (NULL)
+ * @return pointer to ClientRec structure or NULL
  */
 ClientPtr dixClientForGrab(GrabPtr pGrab);
 
@@ -61,7 +62,7 @@ ClientPtr dixClientForGrab(GrabPtr pGrab);
  * (every client so is assigned a range of XIDs it may use for resource creation)
  *
  * @param GrabPtr to the InputClients whose owning client shall be retrieved
- * @return pointer to ClientRec structure or NullClient (NULL)
+ * @return pointer to ClientRec structure or NULL
  */
 ClientPtr dixClientForInputClients(InputClientsPtr pInputClients);
 
@@ -72,7 +73,7 @@ ClientPtr dixClientForInputClients(InputClientsPtr pInputClients);
  * (every client so is assigned a range of XIDs it may use for resource creation)
  *
  * @param GrabPtr to the OtherClients whose owning client shall be retrieved
- * @return pointer to ClientRec structure or NullClient (NULL)
+ * @return pointer to ClientRec structure or NULL
  */
 ClientPtr dixClientForOtherClients(OtherClientsPtr pOtherClients);
 
@@ -87,8 +88,8 @@ ClientPtr dixClientForOtherClients(OtherClientsPtr pOtherClients);
  * @param XID the ID of the resource whose client is retrieved
  * @return index of the client (within client or resource table)
  */
-static inline int dixClientIdForXID(XID xid) {
-    return ((int)(CLIENT_BITS(xid) >> CLIENTOFFSET));
+static inline unsigned short dixClientIdForXID(XID xid) {
+    return (unsigned short)((CLIENT_BITS(xid) >> CLIENTOFFSET));
 }
 
 /*
@@ -98,13 +99,13 @@ static inline int dixClientIdForXID(XID xid) {
  * (every client so is assigned a range of XIDs it may use for resource creation)
  *
  * @param XID the ID of the resource whose client is retrieved
- * @return pointer to ClientRec structure or NullClient (NULL)
+ * @return pointer to ClientRec structure or NULL
  */
 static inline ClientPtr dixClientForXID(XID xid) {
     const int idx = dixClientIdForXID(xid);
     if (idx < MAXCLIENTS)
         return clients[idx];
-    return NullClient;
+    return NULL;
 }
 
 /*
@@ -155,5 +156,20 @@ void GetXIDRange(int client,
                  Bool server,
                  XID *minp,
                  XID *maxp);
+
+/* Resource state callback */
+extern CallbackListPtr ResourceStateCallback;
+
+typedef enum {
+    ResourceStateAdding,
+    ResourceStateFreeing
+} ResourceState;
+
+typedef struct {
+    ResourceState state;
+    XID id;
+    RESTYPE type;
+    void *value;
+} ResourceStateInfoRec;
 
 #endif /* _XSERVER_DIX_RESOURCE_PRIV_H */
