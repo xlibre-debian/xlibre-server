@@ -11,7 +11,7 @@ Build-Depends:
  flex,
  xutils-dev (>= 1:7.6+4),
  xfonts-utils (>= 1:7.5+1),
- x11proto-dev (>= 2024.1),
+ x11proto-dev (>= 2025.1),
  xtrans-dev (>= 1.3.5),
  libxau-dev (>= 1:1.0.5-2),
  libxcvt-dev,
@@ -146,7 +146,7 @@ Package: xserver-xlibre-dev
 Architecture: any
 Depends:
  libpixman-1-dev (>= 0.27.2),
- x11proto-dev (>= 2024.1),
+ x11proto-dev (>= 2025.1),
  libxcvt-dev,
  libxfont-dev,
  libxkbfile-dev,
