@@ -15,7 +15,7 @@ abi_videodrv=@abi_videodrv@
 abi_xinput=@abi_xinput@
 abi_extension=@abi_extension@
 
-Name: xorg-server
+Name: xlibre-server
 Description: Modular XLibre X Server
 URL: https://github.com/X11Libre/xserver/
 Version: @PACKAGE_VERSION@

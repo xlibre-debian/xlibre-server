@@ -177,10 +177,13 @@ LoaderSetPath(const char *path)
 static const char *stdSubdirs[] = {
     // first try loading from per-ABI subdir
     XORG_MODULE_ABI_TAG "/",
-    XORG_MODULE_ABI_TAG "/input/",
+    XORG_MODULE_ABI_TAG "/input/",                   // deprecated -- dropped in ABI 26
     XORG_MODULE_ABI_TAG "/drivers/",
+    XORG_MODULE_ABI_TAG "/drivers/input/",
+    XORG_MODULE_ABI_TAG "/drivers/video/",
     XORG_MODULE_ABI_TAG "/extensions/",
     // now try loading from legacy / unversioned directories
+    // will be dropped in ABI 26 -- proprietary drivers need some symlink logic
     "",
     "input/",
     "drivers/",
@@ -665,7 +668,7 @@ LoadModule(const char *module, void *options, const XF86ModReqInfo *modreq,
     LogMessageVerb(X_INFO, 3, "LoadModule: \"%s\"", module);
 
     /* Ignore abi check for the nvidia proprietary DDX driver */
-    is_nvidia_proprietary = !memcmp(module, "nvidia", sizeof("nvidia"));
+    is_nvidia_proprietary = !strcmp(module, "nvidia");
 
     patterns = InitPatterns(NULL);
     name = LoaderGetCanonicalName(module, patterns);

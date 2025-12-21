@@ -3,10 +3,10 @@ project('xserver', 'c',
             'buildtype=debugoptimized',
             'c_std=gnu99',
         ],
-        version: '25.0.0.16',
+        version: '25.0.0.18',
         meson_version: '>= 0.58.0',
 )
-release_date = '2025-11-20'
+release_date = '2025-12-19'
 
 add_project_arguments('-DHAVE_DIX_CONFIG_H', language: ['c', 'objc'])
 cc = meson.get_compiler('c')
@@ -797,7 +797,7 @@ if build_xorg
     sdkconfig.set('datarootdir', join_paths('${prefix}', get_option('datadir')))
     sdkconfig.set('moduledir', join_paths(join_paths('${exec_prefix}', module_dir), module_abi_tag))
     sdkconfig.set('sdkdir', join_paths('${prefix}', get_option('includedir'), 'xorg'))
-    sdkconfig.set('sysconfigdir', join_paths('${datarootdir}', 'X11/xorg.conf.d'))
+    sdkconfig.set('xserverconfigdir', join_paths('${datarootdir}', 'X11/xorg.conf.d'))
 
     sdkconfig.set('abi_ansic',
         run_command(awk, '-F', '[(,)]',
@@ -849,6 +849,15 @@ if build_xorg
     configure_file(
         input: 'xorg-server.pc.in',
         output: 'xorg-server.pc',
+        configuration: sdkconfig,
+        install_dir: join_paths(get_option('prefix'),
+                                get_option('libdir'),
+                                'pkgconfig'),
+    )
+
+    configure_file(
+        input: 'xlibre-server.pc.in',
+        output: 'xlibre-server.pc',
         configuration: sdkconfig,
         install_dir: join_paths(get_option('prefix'),
                                 get_option('libdir'),
