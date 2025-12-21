@@ -36,6 +36,7 @@ in this Software without prior written authorization from The Open Group.
 #include   "dix/dix_priv.h"
 #include   "dix/gc_priv.h"
 #include   "dix/screen_hooks_priv.h"
+#include   "dix/screenint_priv.h"
 
 #include   "misc.h"
 #include   "input.h"
@@ -188,7 +189,7 @@ miDCRealize(ScreenPtr pScreen, CursorPtr pCursor)
         int error;
         PicturePtr  pPicture;
 
-        pFormat = PictureMatchFormat(pScreen, 32, PICT_a8r8g8b8);
+        pFormat = PictureMatchFormat(pScreen, 32, PIXMAN_a8r8g8b8);
         if (!pFormat)
             return FALSE;
 
@@ -245,7 +246,7 @@ miDCRealize(ScreenPtr pScreen, CursorPtr pCursor)
                            0, 0, pCursor->bits->width, pCursor->bits->height,
                            0, XYPixmap, (char *) pCursor->bits->source);
     gcvals.val = GXand;
-    ChangeGC(NullClient, pGC, GCFunction, &gcvals);
+    ChangeGC(NULL, pGC, GCFunction, &gcvals);
     ValidateGC((DrawablePtr) sourceBits, pGC);
     (*pGC->ops->PutImage) ((DrawablePtr) sourceBits, pGC, 1,
                            0, 0, pCursor->bits->width, pCursor->bits->height,
@@ -253,13 +254,13 @@ miDCRealize(ScreenPtr pScreen, CursorPtr pCursor)
 
     /* mask bits -- pCursor->mask & ~pCursor->source */
     gcvals.val = GXcopy;
-    ChangeGC(NullClient, pGC, GCFunction, &gcvals);
+    ChangeGC(NULL, pGC, GCFunction, &gcvals);
     ValidateGC((DrawablePtr) maskBits, pGC);
     (*pGC->ops->PutImage) ((DrawablePtr) maskBits, pGC, 1,
                            0, 0, pCursor->bits->width, pCursor->bits->height,
                            0, XYPixmap, (char *) pCursor->bits->mask);
     gcvals.val = GXandInverted;
-    ChangeGC(NullClient, pGC, GCFunction, &gcvals);
+    ChangeGC(NULL, pGC, GCFunction, &gcvals);
     ValidateGC((DrawablePtr) maskBits, pGC);
     (*pGC->ops->PutImage) ((DrawablePtr) maskBits, pGC, 1,
                            0, 0, pCursor->bits->width, pCursor->bits->height,
@@ -294,7 +295,7 @@ miDCPutBits(DrawablePtr pDrawable,
 
     if (sourceGC->fgPixel != source) {
         gcval.val = source;
-        ChangeGC(NullClient, sourceGC, GCForeground, &gcval);
+        ChangeGC(NULL, sourceGC, GCForeground, &gcval);
     }
     if (sourceGC->serialNumber != pDrawable->serialNumber)
         ValidateGC(pDrawable, sourceGC);
@@ -312,7 +313,7 @@ miDCPutBits(DrawablePtr pDrawable,
                                   x, y);
     if (maskGC->fgPixel != mask) {
         gcval.val = mask;
-        ChangeGC(NullClient, maskGC, GCForeground, &gcval);
+        ChangeGC(NULL, maskGC, GCForeground, &gcval);
     }
     if (maskGC->serialNumber != pDrawable->serialNumber)
         ValidateGC(pDrawable, maskGC);
@@ -435,22 +436,18 @@ Bool
 miDCDeviceInitialize(DeviceIntPtr pDev, ScreenPtr pScreen)
 {
     miDCBufferPtr pBuffer;
-    WindowPtr pWin;
-    int i;
 
     if (!DevHasCursor(pDev))
         return TRUE;
 
-    for (i = 0; i < screenInfo.numScreens; i++) {
-        pScreen = screenInfo.screens[i];
-
+    DIX_FOR_EACH_SCREEN({
         pBuffer = calloc(1, sizeof(miDCBufferRec));
         if (!pBuffer)
             goto failure;
 
-        dixSetScreenPrivate(&pDev->devPrivates, miDCDeviceKey, pScreen,
+        dixSetScreenPrivate(&pDev->devPrivates, miDCDeviceKey, walkScreen,
                             pBuffer);
-        pWin = pScreen->root;
+        WindowPtr pWin = walkScreen->root;
 
         pBuffer->pSourceGC = miDCMakeGC(pWin);
         if (!pBuffer->pSourceGC)
@@ -472,49 +469,43 @@ miDCDeviceInitialize(DeviceIntPtr pDev, ScreenPtr pScreen)
 
         /* (re)allocated lazily depending on the cursor size */
         pBuffer->pSave = NULL;
-    }
+
+        continue;
+
+failure:
+        miDCDeviceCleanup(pDev, walkScreen);
+        return FALSE;
+    });
 
     return TRUE;
-
- failure:
-
-    miDCDeviceCleanup(pDev, pScreen);
-
-    return FALSE;
 }
 
 void
 miDCDeviceCleanup(DeviceIntPtr pDev, ScreenPtr pScreen)
 {
-    miDCBufferPtr pBuffer;
-    int i;
+    if (!DevHasCursor(pDev))
+        return;
 
-    if (DevHasCursor(pDev)) {
-        for (i = 0; i < screenInfo.numScreens; i++) {
-            pScreen = screenInfo.screens[i];
+    DIX_FOR_EACH_SCREEN({
+        miDCBufferPtr pBuffer = miGetDCDevice(pDev, walkScreen);
+        if (!pBuffer)
+            continue;
 
-            pBuffer = miGetDCDevice(pDev, pScreen);
+        if (pBuffer->pSourceGC)
+            FreeGC(pBuffer->pSourceGC, (GContext) 0);
+        if (pBuffer->pMaskGC)
+            FreeGC(pBuffer->pMaskGC, (GContext) 0);
+        if (pBuffer->pSaveGC)
+            FreeGC(pBuffer->pSaveGC, (GContext) 0);
+        if (pBuffer->pRestoreGC)
+            FreeGC(pBuffer->pRestoreGC, (GContext) 0);
 
-            if (pBuffer) {
-                if (pBuffer->pSourceGC)
-                    FreeGC(pBuffer->pSourceGC, (GContext) 0);
-                if (pBuffer->pMaskGC)
-                    FreeGC(pBuffer->pMaskGC, (GContext) 0);
-                if (pBuffer->pSaveGC)
-                    FreeGC(pBuffer->pSaveGC, (GContext) 0);
-                if (pBuffer->pRestoreGC)
-                    FreeGC(pBuffer->pRestoreGC, (GContext) 0);
+        /* If a pRootPicture was allocated for a root window, it
+         * is freed when that root window is destroyed, so don't
+         * free it again here. */
 
-                /* If a pRootPicture was allocated for a root window, it
-                 * is freed when that root window is destroyed, so don't
-                 * free it again here. */
-
-                dixDestroyPixmap(pBuffer->pSave, 0);
-
-                free(pBuffer);
-                dixSetScreenPrivate(&pDev->devPrivates, miDCDeviceKey, pScreen,
-                                    NULL);
-            }
-        }
-    }
+        dixDestroyPixmap(pBuffer->pSave, 0);
+        free(pBuffer);
+        dixSetScreenPrivate(&pDev->devPrivates, miDCDeviceKey, walkScreen, NULL);
+    });
 }

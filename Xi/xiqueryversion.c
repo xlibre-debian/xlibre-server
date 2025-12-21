@@ -35,12 +35,14 @@
 #include <X11/X.h>
 #include <X11/extensions/XI2proto.h>
 
+#include "dix/dix_priv.h"
 #include "dix/exevents_priv.h"
+#include "dix/request_priv.h"
 #include "os/fmt.h"
+#include "Xi/handlers.h"
 
 #include "inputstr.h"
 #include "exglobals.h"
-#include "xiqueryversion.h"
 #include "misc.h"
 
 extern XExtensionVersion XIVersion;     /* defined in getvers.c */
@@ -54,11 +56,15 @@ extern XExtensionVersion XIVersion;     /* defined in getvers.c */
 int
 ProcXIQueryVersion(ClientPtr client)
 {
-    XIClientPtr pXIClient;
-    int major, minor;
-
     REQUEST(xXIQueryVersionReq);
     REQUEST_SIZE_MATCH(xXIQueryVersionReq);
+
+    if (client->swapped) {
+        swaps(&stuff->major_version);
+        swaps(&stuff->minor_version);
+    }
+
+    int major, minor;
 
     /* This request only exists after XI2 */
     if (stuff->major_version < 2) {
@@ -66,7 +72,7 @@ ProcXIQueryVersion(ClientPtr client)
         return BadValue;
     }
 
-    pXIClient = dixLookupPrivate(&client->devPrivates, XIClientPrivateKey);
+    XIClientPtr pXIClient = XIClientPriv(client);
 
     if (version_compare(XIVersion.major_version, XIVersion.minor_version,
                 stuff->major_version, stuff->minor_version) > 0) {
@@ -112,32 +118,16 @@ ProcXIQueryVersion(ClientPtr client)
         pXIClient->minor_version = minor;
     }
 
-    xXIQueryVersionReply rep = {
-        .repType = X_Reply,
+    xXIQueryVersionReply reply = {
         .RepType = X_XIQueryVersion,
-        .sequenceNumber = client->sequence,
         .major_version = major,
         .minor_version = minor
     };
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swaps(&rep.major_version);
-        swaps(&rep.minor_version);
+        swaps(&reply.major_version);
+        swaps(&reply.minor_version);
     }
-    WriteToClient(client, sizeof(xXIQueryVersionReply), &rep);
 
-    return Success;
-}
-
-/* Swapping routines */
-
-int _X_COLD
-SProcXIQueryVersion(ClientPtr client)
-{
-    REQUEST(xXIQueryVersionReq);
-    REQUEST_AT_LEAST_SIZE(xXIQueryVersionReq);
-    swaps(&stuff->major_version);
-    swaps(&stuff->minor_version);
-    return (ProcXIQueryVersion(client));
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }

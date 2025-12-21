@@ -55,13 +55,14 @@ SOFTWARE.
 #include <X11/extensions/XI.h>
 #include <X11/extensions/XIproto.h>
 
+#include "dix/dix_priv.h"
 #include "dix/input_priv.h"
+#include "dix/request_priv.h"
 #include "dix/resource_priv.h"
+#include "Xi/handlers.h"
 
 #include "inputstr.h"           /* DeviceIntPtr      */
 #include "XIstubs.h"
-#include "exglobals.h"
-#include "setdval.h"
 
 /***********************************************************************
  *
@@ -78,10 +79,8 @@ ProcXSetDeviceValuators(ClientPtr client)
     REQUEST(xSetDeviceValuatorsReq);
     REQUEST_AT_LEAST_SIZE(xSetDeviceValuatorsReq);
 
-    xSetDeviceValuatorsReply rep = {
-        .repType = X_Reply,
+    xSetDeviceValuatorsReply reply = {
         .RepType = X_SetDeviceValuators,
-        .sequenceNumber = client->sequence,
         .status = Success
     };
 
@@ -102,18 +101,14 @@ ProcXSetDeviceValuators(ClientPtr client)
         return BadValue;
 
     if ((dev->deviceGrab.grab) && !SameClient(dev->deviceGrab.grab, client))
-        rep.status = AlreadyGrabbed;
+        reply.status = AlreadyGrabbed;
     else
-        rep.status = SetDeviceValuators(client, dev, (int *) &stuff[1],
+        reply.status = SetDeviceValuators(client, dev, (int *) &stuff[1],
                                         stuff->first_valuator,
                                         stuff->num_valuators);
 
-    if (rep.status != Success && rep.status != AlreadyGrabbed)
-        return rep.status;
+    if (reply.status != Success && reply.status != AlreadyGrabbed)
+        return reply.status;
 
-    if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-    }
-    WriteToClient(client, sizeof(xSetDeviceValuatorsReply), &rep);
-    return Success;
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }

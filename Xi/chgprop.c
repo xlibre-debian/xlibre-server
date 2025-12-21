@@ -57,32 +57,14 @@ SOFTWARE.
 
 #include "dix/dix_priv.h"
 #include "dix/exevents_priv.h"
+#include "dix/window_priv.h"
+#include "Xi/handlers.h"
 
 #include "inputstr.h"           /* DeviceIntPtr      */
 #include "windowstr.h"
 #include "exevents.h"
 #include "exglobals.h"
-#include "chgprop.h"
 #include "grabdev.h"
-
-/***********************************************************************
- *
- * This procedure returns the extension version.
- *
- */
-
-int _X_COLD
-SProcXChangeDeviceDontPropagateList(ClientPtr client)
-{
-    REQUEST(xChangeDeviceDontPropagateListReq);
-    REQUEST_AT_LEAST_SIZE(xChangeDeviceDontPropagateListReq);
-    swapl(&stuff->window);
-    swaps(&stuff->count);
-    REQUEST_FIXED_SIZE(xChangeDeviceDontPropagateListReq,
-                       stuff->count * sizeof(CARD32));
-    SwapLongs((CARD32 *) (&stuff[1]), stuff->count);
-    return (ProcXChangeDeviceDontPropagateList(client));
-}
 
 /***********************************************************************
  *
@@ -93,18 +75,24 @@ SProcXChangeDeviceDontPropagateList(ClientPtr client)
 int
 ProcXChangeDeviceDontPropagateList(ClientPtr client)
 {
+    REQUEST(xChangeDeviceDontPropagateListReq);
+    REQUEST_AT_LEAST_SIZE(xChangeDeviceDontPropagateListReq);
+
+    if (client->swapped) {
+        swapl(&stuff->window);
+        swaps(&stuff->count);
+    }
+
+    REQUEST_FIXED_SIZE(xChangeDeviceDontPropagateListReq,
+                       stuff->count * sizeof(CARD32));
+
+    if (client->swapped)
+        SwapLongs((CARD32 *) (&stuff[1]), stuff->count);
+
     int i, rc;
     WindowPtr pWin;
     struct tmask tmp[EMASKSIZE];
     OtherInputMasks *others;
-
-    REQUEST(xChangeDeviceDontPropagateListReq);
-    REQUEST_AT_LEAST_SIZE(xChangeDeviceDontPropagateListReq);
-
-    if (client->req_len !=
-        bytes_to_int32(sizeof(xChangeDeviceDontPropagateListReq)) +
-        stuff->count)
-        return BadLength;
 
     rc = dixLookupWindow(&pWin, stuff->window, client, DixSetAttrAccess);
     if (rc != Success)

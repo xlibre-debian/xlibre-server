@@ -48,9 +48,12 @@ SOFTWARE.
 
 #include <X11/X.h>
 #include <X11/Xproto.h>
+#include <X11/fonts/fontstruct.h>
+
+#include "dix/dix_priv.h"
+
 #include "misc.h"
 #include "dixstruct.h"
-#include <X11/fonts/fontstruct.h>
 #include "scrnintstr.h"
 #include "swaprep.h"
 #include "globals.h"
@@ -58,152 +61,6 @@ SOFTWARE.
 static void SwapFontInfo(xQueryFontReply * pr);
 
 static void SwapCharInfo(xCharInfo * pInfo);
-
-/**
- * Thanks to Jack Palevich for testing and subsequently rewriting all this
- *
- *  \param size size in bytes
- */
-void _X_COLD
-Swap32Write(ClientPtr pClient, int size, CARD32 *pbuf)
-{
-    int i;
-
-    size >>= 2;
-    for (i = 0; i < size; i++)
-        /* brackets are mandatory here, because "swapl" macro expands
-           to several statements */
-    {
-        swapl(&pbuf[i]);
-    }
-    WriteToClient(pClient, size << 2, pbuf);
-}
-
-/**
- *
- * \param size size in bytes
- */
-void _X_COLD
-CopySwap32Write(ClientPtr pClient, int size, CARD32 *pbuf)
-{
-    int bufsize = size;
-    CARD32 *pbufT;
-    CARD32 *from, *to, *fromLast, *toLast;
-    CARD32 tmpbuf[1];
-
-    /* Allocate as big a buffer as we can... */
-    while (!(pbufT = calloc(1, bufsize))) {
-        bufsize >>= 1;
-        if (bufsize == 4) {
-            pbufT = tmpbuf;
-            break;
-        }
-    }
-
-    /* convert lengths from # of bytes to # of longs */
-    size >>= 2;
-    bufsize >>= 2;
-
-    from = pbuf;
-    fromLast = from + size;
-    while (from < fromLast) {
-        int nbytes;
-
-        to = pbufT;
-        toLast = to + min(bufsize, fromLast - from);
-        nbytes = (toLast - to) << 2;
-        while (to < toLast) {
-            /* can't write "cpswapl(*from++, *to++)" because cpswapl is a macro
-               that evaluates its args more than once */
-            cpswapl(*from, *to);
-            from++;
-            to++;
-        }
-        WriteToClient(pClient, nbytes, pbufT);
-    }
-
-    if (pbufT != tmpbuf)
-        free(pbufT);
-}
-
-/**
- *
- * \param size size in bytes
- */
-void _X_COLD
-CopySwap16Write(ClientPtr pClient, int size, short *pbuf)
-{
-    int bufsize = size;
-    short *pbufT;
-    short *from, *to, *fromLast, *toLast;
-    short tmpbuf[2];
-
-    /* Allocate as big a buffer as we can... */
-    while (!(pbufT = calloc(1, bufsize))) {
-        bufsize >>= 1;
-        if (bufsize == 4) {
-            pbufT = tmpbuf;
-            break;
-        }
-    }
-
-    /* convert lengths from # of bytes to # of shorts */
-    size >>= 1;
-    bufsize >>= 1;
-
-    from = pbuf;
-    fromLast = from + size;
-    while (from < fromLast) {
-        int nbytes;
-
-        to = pbufT;
-        toLast = to + min(bufsize, fromLast - from);
-        nbytes = (toLast - to) << 1;
-        while (to < toLast) {
-            /* can't write "cpswaps(*from++, *to++)" because cpswaps is a macro
-               that evaluates its args more than once */
-            cpswaps(*from, *to);
-            from++;
-            to++;
-        }
-        WriteToClient(pClient, nbytes, pbufT);
-    }
-
-    if (pbufT != tmpbuf)
-        free(pbufT);
-}
-
-/* Extra-small reply */
-void _X_COLD
-SGenericReply(ClientPtr pClient, int size, xGenericReply * pRep)
-{
-    swaps(&pRep->sequenceNumber);
-    WriteToClient(pClient, size, pRep);
-}
-
-static void _X_COLD
-SwapTimecoord(xTimecoord * pCoord)
-{
-    swapl(&pCoord->time);
-    swaps(&pCoord->x);
-    swaps(&pCoord->y);
-}
-
-void _X_COLD
-SwapTimeCoordWrite(ClientPtr pClient, int size, xTimecoord * pRep)
-{
-    int i, n;
-    xTimecoord *pRepT;
-
-    n = size / sizeof(xTimecoord);
-    pRepT = pRep;
-    for (i = 0; i < n; i++) {
-        SwapTimecoord(pRepT);
-        pRepT++;
-    }
-    WriteToClient(pClient, size, pRep);
-
-}
 
 static void _X_COLD
 SwapCharInfo(xCharInfo * pInfo)
@@ -233,7 +90,6 @@ SwapFontInfo(xQueryFontReply * pr)
 void _X_COLD
 SwapFont(xQueryFontReply * pr, Bool hasGlyphs)
 {
-    unsigned i;
     xCharInfo *pxci;
     unsigned nchars, nprops;
     char *pby;
@@ -246,7 +102,7 @@ SwapFont(xQueryFontReply * pr, Bool hasGlyphs)
     pby = (char *) &pr[1];
     /* Font properties are an atom and either an int32 or a CARD32, so
      * they are always 2 4 byte values */
-    for (i = 0; i < nprops; i++) {
+    for (unsigned i = 0; i < nprops; i++) {
         swapl((int *) pby);
         pby += 4;
         swapl((int *) pby);
@@ -254,7 +110,7 @@ SwapFont(xQueryFontReply * pr, Bool hasGlyphs)
     }
     if (hasGlyphs) {
         pxci = (xCharInfo *) pby;
-        for (i = 0; i < nchars; i++, pxci++)
+        for (unsigned i = 0; i < nchars; i++, pxci++)
             SwapCharInfo(pxci);
     }
 }
@@ -683,7 +539,7 @@ SwapVisual(xVisualType * pVis, xVisualType * pVisT)
 void _X_COLD
 SwapConnSetupInfo(char *pInfo, char *pInfoT)
 {
-    int i, j, k;
+    int nbytesVendor;
     xConnSetup *pConnSetup = (xConnSetup *) pInfo;
     xDepth *depth;
     xWindowRoot *root;
@@ -693,30 +549,30 @@ SwapConnSetupInfo(char *pInfo, char *pInfoT)
     pInfoT += sizeof(xConnSetup);
 
     /* Copy the vendor string */
-    i = pad_to_int32(pConnSetup->nbytesVendor);
-    memcpy(pInfoT, pInfo, i);
-    pInfo += i;
-    pInfoT += i;
+    nbytesVendor = pad_to_int32(pConnSetup->nbytesVendor);
+    memcpy(pInfoT, pInfo, nbytesVendor);
+    pInfo += nbytesVendor;
+    pInfoT += nbytesVendor;
 
     /* The Pixmap formats don't need to be swapped, just copied. */
-    i = sizeof(xPixmapFormat) * pConnSetup->numFormats;
-    memcpy(pInfoT, pInfo, i);
-    pInfo += i;
-    pInfoT += i;
+    nbytesVendor = sizeof(xPixmapFormat) * pConnSetup->numFormats;
+    memcpy(pInfoT, pInfo, nbytesVendor);
+    pInfo += nbytesVendor;
+    pInfoT += nbytesVendor;
 
-    for (i = 0; i < pConnSetup->numRoots; i++) {
+    for (int i = 0; i < pConnSetup->numRoots; i++) {
         root = (xWindowRoot *) pInfo;
         SwapWinRoot(root, (xWindowRoot *) pInfoT);
         pInfo += sizeof(xWindowRoot);
         pInfoT += sizeof(xWindowRoot);
 
-        for (j = 0; j < root->nDepths; j++) {
+        for (int j = 0; j < root->nDepths; j++) {
             depth = (xDepth *) pInfo;
             ((xDepth *) pInfoT)->depth = depth->depth;
             cpswaps(depth->nVisuals, ((xDepth *) pInfoT)->nVisuals);
             pInfo += sizeof(xDepth);
             pInfoT += sizeof(xDepth);
-            for (k = 0; k < depth->nVisuals; k++) {
+            for (int k = 0; k < depth->nVisuals; k++) {
                 SwapVisual((xVisualType *) pInfo, (xVisualType *) pInfoT);
                 pInfo += sizeof(xVisualType);
                 pInfoT += sizeof(xVisualType);

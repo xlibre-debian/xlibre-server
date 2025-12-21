@@ -6,11 +6,6 @@ patch = version_split[2].to_int()
 # convert to the old-style 1.x.y version scheme used up to 1.20.x for backwards compatibility
 release = 1 * 10000000 + major * 100000 + minor * 1000 + patch
 
-dri_dep = dependency('dri', required: build_glx)
-
-conf_data = configuration_data()
-conf_data.set('_DIX_CONFIG_H_', '1')
-
 # For feature macros we're using either false (boolean) or '1', which correspond to the macro being
 # not defined at all and defined to 1. This is to match autotools behavior and thus preserve
 # backwards  compatibility with all the existing code that uses #ifdef to check if feature is
@@ -95,12 +90,15 @@ conf_data.set('CONFIG_UDEV', build_udev ? '1' : false)
 conf_data.set('CONFIG_UDEV_KMS', build_udev_kms ? '1' : false)
 conf_data.set('HAVE_DBUS', build_dbus ? '1' : false)
 conf_data.set('CONFIG_HAL', build_hal ? '1' : false)
+conf_data.set('SEATD_LIBSEAT', build_seatd_libseat ? '1' : false)
 conf_data.set('SYSTEMD_LOGIND', build_systemd_logind ? '1' : false)
 conf_data.set('NEED_DBUS', build_systemd_logind or build_hal ? '1' : false)
 conf_data.set('CONFIG_WSCONS', host_machine.system() in ['openbsd', 'netbsd'] ? '1' : false)
 
 conf_data.set('HAVE_XSHMFENCE', xshmfence_dep.found() ? '1' : false)
 conf_data.set('WITH_LIBDRM', libdrm_required ? '1' : false)
+conf_data.set('LIBDRM_HAS_PLANE_SIZE_HINTS', libdrm_required ? libdrm_dep.version().version_compare('>= 2.4.122') : false)
+conf_data.set('GLAMOR_HAS_EGL', epoxy_dep.found() ? '1' : false)
 conf_data.set('GLAMOR_HAS_EGL_QUERY_DMABUF',
               epoxy_dep.found() and epoxy_dep.version().version_compare('>= 1.4.4') ? '1' : false)
 conf_data.set('GLAMOR_HAS_EGL_QUERY_DRIVER',
@@ -141,7 +139,7 @@ conf_data.set('HAVE_SYS_SYSMACROS_H', cc.has_header('sys/sysmacros.h') ? '1' : f
 conf_data.set('HAVE_ARC4RANDOM_BUF', cc.has_function('arc4random_buf', dependencies: libbsd_dep) ? '1' : false)
 conf_data.set('HAVE_BACKTRACE', cc.has_function('backtrace') ? '1' : false)
 conf_data.set('HAVE_CBRT', cc.has_function('cbrt') ? '1' : false)
-conf_data.set('HAVE_EPOLL_CREATE1', cc.has_function('epoll_create1') ? '1' : false)
+conf_data.set('HAVE_EPOLL_CREATE1', cc.has_function('epoll_create1',dependencies:epoll_dep, prefix:'#include<sys/epoll.h>') ? '1' : false)
 conf_data.set('HAVE_GETUID', cc.has_function('getuid') ? '1' : false)
 conf_data.set('HAVE_GETEUID', cc.has_function('geteuid') ? '1' : false)
 conf_data.set('HAVE_ISASTREAM', cc.has_function('isastream') ? '1' : false)
@@ -200,8 +198,7 @@ if conf_data.get('HAVE_GETPEEREID').to_int() == 0 and conf_data.get('HAVE_GETPEE
     endif
 endif
 
-conf_data.set('TCPCONN', '1')
-conf_data.set('UNIXCONN', host_machine.system() != 'windows' ? '1' : false)
+conf_data.set('UNIXCONN', '1')
 conf_data.set('IPv6', build_ipv6 ? '1' : false)
 
 # potentially tunable - needed also in places that cannot include misc.h
@@ -209,6 +206,9 @@ conf_data.set('MAXCLIENTS', 2048)
 
 # Must be a power of 2 and <= MAXCLIENTS */
 conf_data.set('DIX_LIMITCLIENTS', 256)
+
+# Legacy NVidia drivers (390, 470) use an older ABI and expect an additional field in ScreenRec */
+conf_data.set('CONFIG_LEGACY_NVIDIA_PADDING', legacy_nvidia_padding ? '1' : false)
 
 # some drivers (eg. xf86-video-intel) still relying on this symbol being set
 conf_data.set('COMPOSITE', '1')
@@ -220,9 +220,13 @@ conf_data.set('DPMSExtension', build_dpms ? '1' : false)
 conf_data.set('DRI2', build_dri2 ? '1' : false)
 conf_data.set('DRI3', build_dri3 ? '1' : false)
 if build_glx
-    conf_data.set_quoted('DRI_DRIVER_PATH', dri_dep.get_variable(pkgconfig : 'dridriverdir'))
+    if build_glx_dri
+        conf_data.set_quoted('DRI_DRIVER_PATH', dri_dep.get_variable(pkgconfig : 'dridriverdir'))
+        conf_data.set('BUILD_GLX_DRI', 1)
+    endif
 endif
 conf_data.set('MITSHM', build_mitshm ? '1' : false)
+conf_data.set('CONFIG_MITSHM', build_mitshm ? '1' : false)
 
 # for backwards compat with drivers, still setting the old PANORAMIX symbol
 conf_data.set('PANORAMIX', build_xinerama ? '1' : false)
@@ -234,11 +238,11 @@ conf_data.set('RES', build_res ? '1' : false)
 conf_data.set('RENDER', '1')
 conf_data.set('SCREENSAVER', build_screensaver ? '1' : false)
 conf_data.set('SHAPE', '1')
-conf_data.set('XACE', build_xace ? '1' : false)
+conf_data.set('XACE', '1')
 conf_data.set('XCMISC', '1')
 conf_data.set('XCSECURITY', build_xsecurity ? '1' : false)
 conf_data.set('CONFIG_NAMESPACE', build_namespace ? '1' : false)
-conf_data.set('XDMCP', xdmcp_dep.found() ? '1' : false)
+conf_data.set('XDMCP', build_xdmcp ? '1' : false)
 conf_data.set('XF86BIGFONT', build_xf86bigfont ? '1' : false)
 conf_data.set('XF86DRI', build_dri1 ? '1' : false)
 conf_data.set('XF86VIDMODE', 1)
@@ -266,15 +270,8 @@ conf_data.set('HAVE_LIBUNWIND', get_option('libunwind'))
 conf_data.set('HAVE_APM', (build_apm or build_acpi) ? '1' : false)
 conf_data.set('HAVE_ACPI', build_acpi ? '1' : false)
 
-conf_data.set('DDXBEFORERESET', build_xwin ? '1' : false)
 enable_debugging = get_option('buildtype') == 'debug'
 conf_data.set('DEBUG', enable_debugging ? '1' : false)
-
-conf_data.set_quoted('XVENDORNAME', get_option('vendor_name'))
-conf_data.set_quoted('XVENDORNAMESHORT', get_option('vendor_name_short'))
-conf_data.set_quoted('__VENDORDWEBSUPPORT__', get_option('vendor_web'))
-conf_data.set_quoted('BUILDERADDR', get_option('builder_addr'))
-conf_data.set_quoted('BUILDERSTRING', get_option('builder_string'))
 
 if build_rootless
     conf_data.set('ROOTLESS', build_rootless ? '1' : false)
@@ -339,9 +336,6 @@ conf_data.set('XSERVER_SCREEN_VRR', '1')
 
 version_data = configuration_data()
 version_data.set('VENDOR_RELEASE', '@0@'.format(release))
-version_data.set_quoted('VENDOR_NAME', get_option('vendor_name'))
-version_data.set_quoted('VENDOR_NAME_SHORT', get_option('vendor_name_short'))
-version_data.set_quoted('VENDOR_WEB', get_option('vendor_web'))
 version_data.set_quoted('VENDOR_MAN_VERSION', 'Version @0@.@1@.@2@'.format(major, minor, patch))
 configure_file(output : 'version-config.h',
                configuration : version_data)
@@ -397,14 +391,12 @@ elif host_machine.system() == 'netbsd' or host_machine.system() == 'openbsd'
     endif
 endif
 
-configure_file(output : 'xorg-config.h',
-               input : 'xorg-config.h.meson.in',
-               configuration : xorg_data)
-
 xwin_data = configuration_data()
 xwin_data.set_quoted('DEFAULT_LOGDIR', log_dir)
 xwin_data.set('HAS_WINSOCK', host_machine.system() == 'windows' ? '1' : false,
               description: 'Use Windows sockets')
+xwin_data.set('HAS_DEVWINDOWS', host_machine.system() == 'cygwin' ? '1' : false,
+              description: 'Has /dev/windows for signaling new win32 messages')
 xwin_data.set('RELOCATE_PROJECTROOT', host_machine.system() == 'windows' ? '1' : false,
               description: 'Make paths relative to the xserver installation location')
 xwin_data.set10('ENABLE_DEBUG', enable_debugging)
@@ -429,11 +421,9 @@ if build_xorg
         [
             'Xprintf.h',
             'callback.h',
-            'client.h',
             'closure.h',
             'colormap.h',
             'colormapst.h',
-            'hotplug.h',
             'cursor.h',
             'cursorstr.h',
             'dix.h',
@@ -458,7 +448,6 @@ if build_xorg
             'misc.h',
             'miscstruct.h',
             'opaque.h',
-            'nonsdk_extinit.h',
             'optionstr.h',
             'os.h',
             'pixmap.h',

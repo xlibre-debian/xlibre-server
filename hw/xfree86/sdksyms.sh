@@ -53,9 +53,9 @@ cat > sdksyms.c << EOF
 #include "xvdix.h"
 #include "xvmcext.h"
 #endif
-#ifdef MITSHM
+#ifdef CONFIG_MITSHM
 #include "shmint.h"
-#endif
+#endif /* CONFIG_MITSHM */
 #include "syncsdk.h"
 
 /* glx/Makefile.am */
@@ -218,8 +218,6 @@ cat > sdksyms.c << EOF
 #include "closure.h"
 #include "colormap.h"
 #include "colormapst.h"
-#include "hotplug.h"
-#include "client.h"
 #include "cursor.h"
 #include "cursorstr.h"
 #include "dix.h"

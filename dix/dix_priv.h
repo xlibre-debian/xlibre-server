@@ -5,8 +5,6 @@
 #ifndef _XSERVER_DIX_PRIV_H
 #define _XSERVER_DIX_PRIV_H
 
-#include <X11/Xdefs.h>
-
 /* This file holds global DIX settings to be used inside the Xserver,
  *  but NOT supposed to be accessed directly by external server modules like
  *  drivers or extension modules. Thus the definitions here are not part of the
@@ -19,6 +17,7 @@
 
 #include "dix/input_priv.h"
 #include "dix/resource_priv.h"
+#include "dix/rpcbuf_priv.h"
 
 #include "include/callback.h"
 #include "include/cursor.h"
@@ -29,6 +28,9 @@
 #include "include/os.h"
 #include "include/resource.h"
 #include "include/window.h"
+
+/* pad scanline to a longword */
+#define BITMAP_SCANLINE_UNIT    32
 
 #define LEGAL_NEW_RESOURCE(id,client)           \
     do {                                        \
@@ -60,6 +62,9 @@ extern HWEventQueuePtr checkForInput[2];
 
  /* -retro mode */
 extern Bool party_like_its_1989;
+
+/* needed by libglx and libglamor (server modules) */
+extern _X_EXPORT Bool enableIndirectGLX;
 
 /*
  * @brief callback right after one screen's root window has been initialized
@@ -95,9 +100,10 @@ void CloseDownClient(ClientPtr client);
 ClientPtr GetCurrentClient(void);
 void InitClient(ClientPtr client, int i, void *ospriv);
 
+int FillFontPath(x_rpcbuf_t *rpcbuf);
+
 /* lookup builtin color by name */
-Bool dixLookupBuiltinColor(int screen,
-                           char *name,
+Bool dixLookupBuiltinColor(char *name,
                            unsigned len,
                            unsigned short *pred,
                            unsigned short *pgreen,
@@ -273,12 +279,14 @@ int CorePointerProc(DeviceIntPtr dev, int what);
 
 int CoreKeyboardProc(DeviceIntPtr dev, int what);
 
+typedef struct _xQueryFontReply *xQueryFontReplyPtr;
+void QueryFont(FontPtr pFont, xQueryFontReplyPtr pReply, int nProtoCCIStructs);
+
 extern Bool whiteRoot;
 
 extern volatile char isItTimeToYield;
 
 /* bit values for dispatchException */
-#define DE_RESET     1
 #define DE_TERMINATE 2
 #define DE_PRIORITYCHANGE 4     /* set when a client's priority changes */
 
@@ -693,7 +701,100 @@ static inline ClientPtr dixLookupXIDOwner(XID xid)
     int clientId = dixClientIdForXID(xid);
     if (clientId < currentMaxClients)
         return clients[clientId];
-    return NullClient;
+    return NULL;
 }
+
+/*
+ * @brief make atom from null-terminated string
+ *
+ * if atom already existing, return the existing Atom ID
+ *
+ * @param name  the atom name
+ * @return atom ID
+ */
+static inline Atom dixAddAtom(const char *name) {
+    return MakeAtom(name, (unsigned int)strlen(name), TRUE);
+}
+
+/*
+ * @brief retrieve atom ID by name
+ *
+ * if the atom doesn't exist yet, 0 / NONE is returned
+ *
+ * @param name  the atom name
+ * @return atom ID
+ */
+static inline Atom dixGetAtomID(const char *name) {
+    return MakeAtom(name, (unsigned int)strlen(name), FALSE);
+}
+
+/*
+ * transmit raw event into client's buffer
+ * the struct already needs to be filled with all on-wire data, and
+ * byte-swapping must have been done (if client is swapped)
+ *
+ * the sequenceNumber field is automatically filled and byte-swapped
+ *
+ * @param client      pointer to the client (ClientPtr)
+ * @param event       pointer to the event
+ * @return            return value of WriteToClient
+ */
+static inline int xmitClientEvent(ClientPtr pClient, xEvent ev)
+{
+    ev.u.u.sequenceNumber = (CARD16)pClient->sequence; /* shouldn't go above 64k */
+
+    if (pClient->swapped)
+        swaps(&ev.u.u.sequenceNumber);
+
+    return WriteToClient(pClient, sizeof(xEvent), &ev);
+}
+
+/*
+ * allocate color for given client
+ * the colors channel values need to be filled into the fields pointed
+ * to by the parameters, and the actually allocated ones are returned there
+ *
+ * @param client  pointer to client
+ * @param cmap    XID of the cmap to use
+ * @param red     pointer to red channel value
+ * @param green   pointer to green channel value
+ * @param blue    pointer to blue channel value
+ * @param pixel   pointer to return buffer for pixel value
+ * @return        X11 error code
+ */
+int dixAllocColor(ClientPtr client, Colormap cmap, CARD16 *red,
+                  CARD16 *green, CARD16 *blue, CARD32 *pixel);
+
+void ReplyNotSwappd(ClientPtr pClient, int size, void *pbuf)  _X_NORETURN;
+
+/*
+ * Byte swap a list of CARD32s
+ *
+ * @param list    pointer to list of clients
+ * @param count   amount of CARD32s to swap
+ */
+static inline void SwapLongs(CARD32 *list, unsigned long count) {
+    while (count >= 8) {
+        swapl(list + 0);
+        swapl(list + 1);
+        swapl(list + 2);
+        swapl(list + 3);
+        swapl(list + 4);
+        swapl(list + 5);
+        swapl(list + 6);
+        swapl(list + 7);
+        list += 8;
+        count -= 8;
+    }
+    if (count != 0) {
+        do {
+            swapl(list);
+            list++;
+        } while (--count != 0);
+    }
+}
+
+#define SwapRestL(stuff) \
+    SwapLongs((CARD32 *)(stuff + 1), (client->req_len - (sizeof(*stuff) >> 2)))
 
 #endif /* _XSERVER_DIX_PRIV_H */

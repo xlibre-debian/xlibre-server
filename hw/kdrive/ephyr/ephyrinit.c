@@ -23,7 +23,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <dix-config.h>
+#include <kdrive-config.h>
 
 #include "dix/dix_priv.h"
 #include "os/cmdline.h"
@@ -63,9 +63,9 @@ InitCard(char *name)
 }
 
 void
-InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
+InitOutput(int argc, char **argv)
 {
-    KdInitOutput(pScreenInfo, argc, argv);
+    KdInitOutput(argc, argv);
 }
 
 void
@@ -107,13 +107,6 @@ CloseInput(void)
     the input thread. */
 void
 ddxInputThreadInit(void)
-{
-}
-#endif
-
-#ifdef DDXBEFORERESET
-void
-ddxBeforeReset(void)
 {
 }
 #endif
@@ -370,6 +363,23 @@ ddxProcessArgument(int argc, char **argv, int i)
     return KdProcessArgument(argc, argv, i);
 }
 
+static int
+EphyrInit(void)
+{
+    /*
+     * make sure at least one screen
+     * has been added to the system.
+     */
+    if (!KdCardInfoLast()) {
+        processScreenArg("640x480", NULL);
+    }
+    return hostx_init();
+}
+
+KdOsFuncs EphyrOsFuncs = {
+    .Init = EphyrInit,
+};
+
 void
 OsVendorInit(void)
 {
@@ -381,12 +391,7 @@ OsVendorInit(void)
     if (hostx_want_host_cursor())
         ephyrFuncs.initCursor = &ephyrCursorInit;
 
-    if (serverGeneration == 1) {
-        if (!KdCardInfoLast()) {
-            processScreenArg("640x480", NULL);
-        }
-        hostx_init();
-    }
+    KdOsInit(&EphyrOsFuncs);
 }
 
 KdCardFuncs ephyrFuncs = {

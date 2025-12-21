@@ -29,13 +29,14 @@
 
 #include "dix/dix_priv.h"
 #include "dix/exevents_priv.h"
+#include "dix/inpututils_priv.h"
+#include "dix/request_priv.h"
 #include "dix/resource_priv.h"
+#include "dix/window_priv.h"
+#include "Xi/handlers.h"
 
 #include "dixstruct.h"
 #include "windowstr.h"
-#include "exglobals.h"
-#include "inpututils.h"
-#include "xiselectev.h"
 
 /**
  * Ruleset:
@@ -113,53 +114,37 @@ XICheckInvalidMaskBits(ClientPtr client, unsigned char *mask, int len)
     return Success;
 }
 
-int _X_COLD
-SProcXISelectEvents(ClientPtr client)
-{
-    int i;
-    int len;
-    xXIEventMask *evmask;
-
-    REQUEST(xXISelectEventsReq);
-    REQUEST_AT_LEAST_SIZE(xXISelectEventsReq);
-    swapl(&stuff->win);
-    swaps(&stuff->num_masks);
-
-    len = client->req_len - bytes_to_int32(sizeof(xXISelectEventsReq));
-    evmask = (xXIEventMask *) &stuff[1];
-    for (i = 0; i < stuff->num_masks; i++) {
-        if (len < bytes_to_int32(sizeof(xXIEventMask)))
-            return BadLength;
-        len -= bytes_to_int32(sizeof(xXIEventMask));
-        swaps(&evmask->deviceid);
-        swaps(&evmask->mask_len);
-        if (len < evmask->mask_len)
-            return BadLength;
-        len -= evmask->mask_len;
-        evmask =
-            (xXIEventMask *) (((char *) &evmask[1]) + evmask->mask_len * 4);
-    }
-
-    return (ProcXISelectEvents(client));
-}
-
 int
 ProcXISelectEvents(ClientPtr client)
 {
-    int rc, num_masks;
-    WindowPtr win;
-    DeviceIntPtr dev;
-    DeviceIntRec dummy;
-    xXIEventMask *evmask;
-    int len;
-
     REQUEST(xXISelectEventsReq);
     REQUEST_AT_LEAST_SIZE(xXISelectEventsReq);
+
+    if (client->swapped) {
+        swapl(&stuff->win);
+        swaps(&stuff->num_masks);
+
+        int len = client->req_len - bytes_to_int32(sizeof(xXISelectEventsReq));
+        xXIEventMask *evmask = (xXIEventMask *) &stuff[1];
+        for (int i = 0; i < stuff->num_masks; i++) {
+            if (len < bytes_to_int32(sizeof(xXIEventMask)))
+                return BadLength;
+            len -= bytes_to_int32(sizeof(xXIEventMask));
+            swaps(&evmask->deviceid);
+            swaps(&evmask->mask_len);
+            if (len < evmask->mask_len)
+                return BadLength;
+            len -= evmask->mask_len;
+            evmask =
+                (xXIEventMask *) (((char *) &evmask[1]) + evmask->mask_len * 4);
+        }
+    }
 
     if (stuff->num_masks == 0)
         return BadValue;
 
-    rc = dixLookupWindow(&win, stuff->win, client, DixReceiveAccess);
+    WindowPtr win;
+    int rc = dixLookupWindow(&win, stuff->win, client, DixReceiveAccess);
 
     // when access to the window is denied, just pretend everything's okay
     if (rc == BadAccess)
@@ -168,16 +153,18 @@ ProcXISelectEvents(ClientPtr client)
     if (rc != Success)
         return rc;
 
-    len = sz_xXISelectEventsReq;
+    int len = sz_xXISelectEventsReq;
 
     /* check request validity */
-    evmask = (xXIEventMask *) &stuff[1];
-    num_masks = stuff->num_masks;
+    xXIEventMask *evmask = (xXIEventMask *) &stuff[1];
+    int num_masks = stuff->num_masks;
     while (num_masks--) {
         len += sizeof(xXIEventMask) + evmask->mask_len * 4;
 
         if (bytes_to_int32(len) > client->req_len)
             return BadLength;
+
+        DeviceIntPtr dev;
 
         if (evmask->deviceid != XIAllDevices &&
             evmask->deviceid != XIAllMasterDevices)
@@ -309,6 +296,8 @@ ProcXISelectEvents(ClientPtr client)
     evmask = (xXIEventMask *) &stuff[1];
     num_masks = stuff->num_masks;
     while (num_masks--) {
+        DeviceIntPtr dev;
+        DeviceIntRec dummy = { 0 };
         if (evmask->deviceid == XIAllDevices ||
             evmask->deviceid == XIAllMasterDevices) {
             dummy.id = evmask->deviceid;
@@ -329,38 +318,27 @@ ProcXISelectEvents(ClientPtr client)
     return Success;
 }
 
-int _X_COLD
-SProcXIGetSelectedEvents(ClientPtr client)
-{
-    REQUEST(xXIGetSelectedEventsReq);
-    REQUEST_SIZE_MATCH(xXIGetSelectedEventsReq);
-    swapl(&stuff->win);
-
-    return (ProcXIGetSelectedEvents(client));
-}
-
 int
 ProcXIGetSelectedEvents(ClientPtr client)
 {
-    int rc, i;
-    WindowPtr win;
-    char *buffer = NULL;
-    OtherInputMasks *masks;
-    InputClientsPtr others = NULL;
-    xXIEventMask *evmask = NULL;
-    DeviceIntPtr dev;
-
     REQUEST(xXIGetSelectedEventsReq);
     REQUEST_SIZE_MATCH(xXIGetSelectedEventsReq);
+
+    if (client->swapped)
+        swapl(&stuff->win);
+
+    int rc, i;
+    WindowPtr win;
+    OtherInputMasks *masks;
+    InputClientsPtr others = NULL;
+    DeviceIntPtr dev;
 
     rc = dixLookupWindow(&win, stuff->win, client, DixGetAttrAccess);
     if (rc != Success)
         return rc;
 
-    xXIGetSelectedEventsReply rep = {
-        .repType = X_Reply,
+    xXIGetSelectedEventsReply reply = {
         .RepType = X_XIGetSelectedEvents,
-        .sequenceNumber = client->sequence,
     };
 
     masks = wOtherInputMasks(win);
@@ -373,15 +351,11 @@ ProcXIGetSelectedEvents(ClientPtr client)
         }
     }
 
+    x_rpcbuf_t rpcbuf = { .swapped = client->swapped, .err_clear = TRUE };
+
     if (!others)
         goto finish;
 
-    buffer =
-        calloc(MAXDEVICES, sizeof(xXIEventMask) + pad_to_int32(XI2MASKSIZE));
-    if (!buffer)
-        return BadAlloc;
-
-    evmask = (xXIEventMask *) buffer;
     for (i = 0; i < MAXDEVICES; i++) {
         int j;
         const unsigned char *devmask = xi2mask_get_one_mask(others->xi2mask, i);
@@ -393,38 +367,33 @@ ProcXIGetSelectedEvents(ClientPtr client)
         }
 
         for (j = xi2mask_mask_size(others->xi2mask) - 1; j >= 0; j--) {
+            /* scan backwards to skip trailing zeros. mask is always written in 32bit granularity */
             if (devmask[j] != 0) {
+
                 int mask_len = (j + 4) / 4;     /* j is an index, hence + 4, not + 3 */
 
-                evmask->deviceid = i;
-                evmask->mask_len = mask_len;
-                rep.num_masks++;
-                rep.length += sizeof(xXIEventMask) / 4 + evmask->mask_len;
+                /* write xXIEventMask */
+                x_rpcbuf_write_CARD16(&rpcbuf, i);
+                x_rpcbuf_write_CARD16(&rpcbuf, mask_len);
 
-                if (client->swapped) {
-                    swaps(&evmask->deviceid);
-                    swaps(&evmask->mask_len);
-                }
+                /* write mask -- be prepared for original mask not 32bit aligned */
+                x_rpcbuf_write_CARD8s(&rpcbuf, devmask, j+1);
+                CARD8 zero[8] = { 0 };
+                x_rpcbuf_write_CARD8s(&rpcbuf, zero, (mask_len*4) - (j+1));
 
-                memcpy(&evmask[1], devmask, j + 1);
-                evmask = (xXIEventMask *) ((char *) evmask +
-                                           sizeof(xXIEventMask) + mask_len * 4);
+                reply.num_masks++;
+
+                /* found out the mask size and written it, so break out here */
                 break;
             }
         }
     }
 
 finish: ;
-    uint32_t length = rep.length; /* save before swapping it */
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swaps(&rep.num_masks);
+        swaps(&reply.num_masks);
     }
-    WriteToClient(client, sizeof(xXIGetSelectedEventsReply), &rep);
-    WriteToClient(client, length * 4, buffer);
 
-    free(buffer);
-    return Success;
+    return X_SEND_REPLY_WITH_RPCBUF(client, reply, rpcbuf);
 }

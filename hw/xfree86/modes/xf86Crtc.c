@@ -29,6 +29,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "dix/dix_priv.h"
 #include "dix/screen_hooks_priv.h"
 #include "randr/randrstr_priv.h"
 
@@ -3111,7 +3112,7 @@ xf86DisableUnusedFunctions(ScrnInfoPtr pScrn)
 static void
 xf86OutputSetEDIDProperty(xf86OutputPtr output, void *data, int data_len)
 {
-    Atom edid_atom = MakeAtom(EDID_ATOM_NAME, sizeof(EDID_ATOM_NAME) - 1, TRUE);
+    Atom edid_atom = dixAddAtom(EDID_ATOM_NAME);
 
     /* This may get called before the RandR resources have been created */
     if (output->randr_output == NULL)
@@ -3132,7 +3133,7 @@ xf86OutputSetEDIDProperty(xf86OutputPtr output, void *data, int data_len)
 static void
 xf86OutputSetTileProperty(xf86OutputPtr output)
 {
-    Atom tile_atom = MakeAtom(TILE_ATOM_NAME, sizeof(TILE_ATOM_NAME) - 1, TRUE);
+    Atom tile_atom = dixAddAtom(TILE_ATOM_NAME);
 
     /* This may get called before the RandR resources have been created */
     if (output->randr_output == NULL)
@@ -3198,7 +3199,7 @@ xf86OutputParseKMSTile(const char *tile_data, int tile_length,
 {
     int ret;
 
-    ret = sscanf(tile_data, "%d:%d:%d:%d:%d:%d:%d:%d",
+    ret = sscanf(tile_data, "%u:%u:%u:%u:%u:%u:%u:%u",
                  &tile_info->group_id,
                  &tile_info->flags,
                  &tile_info->num_h_tile,

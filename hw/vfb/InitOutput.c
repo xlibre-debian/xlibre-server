@@ -39,11 +39,13 @@ from The Open Group.
 #include "dix/colormap_priv.h"
 #include "dix/dix_priv.h"
 #include "dix/screenint_priv.h"
+#include "include/extinit.h"
 #include "mi/mi_priv.h"
 #include "mi/mipointer_priv.h"
 #include "os/cmdline.h"
 #include "os/ddx_priv.h"
 #include "os/osdep.h"
+#include "os/xhostname.h"
 
 #include "scrnintstr.h"
 #include "servermd.h"
@@ -66,10 +68,10 @@ from The Open Group.
 #include <sys/param.h>
 #endif
 #include <X11/XWDFile.h>
-#ifdef MITSHM
+#ifdef CONFIG_MITSHM
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#endif                          /* MITSHM */
+#endif /* CONFIG-MITSHM */
 #include "dix.h"
 #include "miline.h"
 #include "glx_extinit.h"
@@ -116,9 +118,9 @@ typedef struct {
     char mmap_file[MAXPATHLEN];
 #endif
 
-#ifdef MITSHM
+#ifdef CONFIG_MITSHM
     int shmid;
-#endif
+#endif /* CONFIG_MITSHM */
 } vfbScreenInfo, *vfbScreenInfoPtr;
 
 static int vfbNumScreens;
@@ -228,17 +230,17 @@ freeScreenInfo(vfbScreenInfoPtr pvfb)
         break;
 #endif                          /* HAVE_MMAP */
 
-#ifdef MITSHM
+#ifdef CONFIG_MITSHM
     case SHARED_MEMORY_FB:
         if (-1 == shmdt((char *) pvfb->pXWDHeader)) {
             perror("shmdt");
             ErrorF("shmdt failed, %s", strerror(errno));
         }
         break;
-#else                           /* MITSHM */
+#else /* CONFIG_MITSHM */
     case SHARED_MEMORY_FB:
         break;
-#endif                          /* MITSHM */
+#endif /* CONFIG_MITSHM */
 
     case NORMAL_MEMORY_FB:
         free(pvfb->pXWDHeader);
@@ -269,14 +271,6 @@ OsVendorFatalError(const char *f, va_list args)
 {
 }
 
-#if defined(DDXBEFORERESET)
-void
-ddxBeforeReset(void)
-{
-    return;
-}
-#endif
-
 #if INPUTTHREAD
 /** This function is called in Xserver/os/inputthread.c when starting
     the input thread. */
@@ -302,9 +296,9 @@ ddxUseMsg(void)
         ("-fbdir directory       put framebuffers in mmap'ed files in directory\n");
 #endif
 
-#ifdef MITSHM
+#ifdef CONFIG_MITSHM
     ErrorF("-shmem                 put framebuffers in shared memory\n");
-#endif
+#endif /* CONFIG_MITSHM */
 
     ErrorF("-crtcs n               number of CRTCs per screen (default: %d)\n",
            VFB_DEFAULT_NUM_CRTCS);
@@ -419,12 +413,12 @@ ddxProcessArgument(int argc, char *argv[], int i)
     }
 #endif                          /* HAVE_MMAP */
 
-#ifdef MITSHM
+#ifdef CONFIG_MITSHM
     if (strcmp(argv[i], "-shmem") == 0) {       /* -shmem */
         fbmemtype = SHARED_MEMORY_FB;
         return 1;
     }
-#endif
+#endif /* CONFIG_MITSHM */
 
     if (strcmp(argv[i], "-crtcs") == 0) {       /* -crtcs n */
         int numCrtcs;
@@ -609,7 +603,7 @@ vfbAllocateMmappedFramebuffer(vfbScreenInfoPtr pvfb)
 }
 #endif                          /* HAVE_MMAP */
 
-#ifdef MITSHM
+#ifdef CONFIG_MITSHM
 static void
 vfbAllocateSharedMemoryFramebuffer(vfbScreenInfoPtr pvfb)
 {
@@ -635,7 +629,7 @@ vfbAllocateSharedMemoryFramebuffer(vfbScreenInfoPtr pvfb)
 
     ErrorF("screen %d shmid %d\n", (int) (pvfb - vfbScreens), pvfb->shmid);
 }
-#endif                          /* MITSHM */
+#endif /* CONFIG_MITSHM */
 
 static char *
 vfbAllocateFramebufferMemory(vfbScreenInfoPtr pvfb)
@@ -678,14 +672,14 @@ vfbAllocateFramebufferMemory(vfbScreenInfoPtr pvfb)
         break;
 #endif
 
-#ifdef MITSHM
+#ifdef CONFIG_MITSHM
     case SHARED_MEMORY_FB:
         vfbAllocateSharedMemoryFramebuffer(pvfb);
         break;
-#else
+#else /* CONFIG_MITSHM */
     case SHARED_MEMORY_FB:
         break;
-#endif
+#endif /* CONFIG_MITSHM */
 
     case NORMAL_MEMORY_FB:
         pvfb->pXWDHeader = (XWDFileHeader *) calloc(1, pvfb->sizeInBytes);
@@ -709,7 +703,6 @@ vfbWriteXWDFileHeader(ScreenPtr pScreen)
 {
     vfbScreenInfoPtr pvfb = &vfbScreens[pScreen->myNum];
     XWDFileHeader *pXWDHeader = pvfb->pXWDHeader;
-    char hostname[XWD_WINDOW_NAME_LEN];
     unsigned long swaptest = 1;
     int i;
 
@@ -744,12 +737,10 @@ vfbWriteXWDFileHeader(ScreenPtr pScreen)
     pXWDHeader->window_bdrwidth = 0;
 
     /* write xwd "window" name: Xvfb hostname:server.screen */
-
-    if (-1 == gethostname(hostname, sizeof(hostname)))
-        hostname[0] = 0;
-    else
-        hostname[XWD_WINDOW_NAME_LEN - 1] = 0;
-    sprintf((char *) (pXWDHeader + 1), "Xvfb %s:%s.%d", hostname, display,
+    struct xhostname hn;
+    xhostname(&hn);
+    hn.name[XWD_WINDOW_NAME_LEN - 1] = 0;
+    sprintf((char *) (pXWDHeader + 1), "Xvfb %s:%s.%d", hn.name, display,
             pScreen->myNum);
 
     /* write colormap pixel slot values */
@@ -1056,7 +1047,7 @@ vfbScreenInit(ScreenPtr pScreen, int argc, char **argv)
 }                               /* end vfbScreenInit */
 
 void
-InitOutput(ScreenInfo * screen_info, int argc, char **argv)
+InitOutput(int argc, char **argv)
 {
     int i;
     int NumFormats = 0;
@@ -1094,18 +1085,18 @@ InitOutput(ScreenInfo * screen_info, int argc, char **argv)
         if (vfbPixmapDepths[i]) {
             if (NumFormats >= MAXFORMATS)
                 FatalError("MAXFORMATS is too small for this server\n");
-            screen_info->formats[NumFormats].depth = i;
-            screen_info->formats[NumFormats].bitsPerPixel = vfbBitsPerPixel(i);
-            screen_info->formats[NumFormats].scanlinePad = BITMAP_SCANLINE_PAD;
+            screenInfo.formats[NumFormats].depth = i;
+            screenInfo.formats[NumFormats].bitsPerPixel = vfbBitsPerPixel(i);
+            screenInfo.formats[NumFormats].scanlinePad = BITMAP_SCANLINE_PAD;
             NumFormats++;
         }
     }
 
-    screen_info->imageByteOrder = IMAGE_BYTE_ORDER;
-    screen_info->bitmapScanlineUnit = BITMAP_SCANLINE_UNIT;
-    screen_info->bitmapScanlinePad = BITMAP_SCANLINE_PAD;
-    screen_info->bitmapBitOrder = BITMAP_BIT_ORDER;
-    screen_info->numPixmapFormats = NumFormats;
+    screenInfo.imageByteOrder = IMAGE_BYTE_ORDER;
+    screenInfo.bitmapScanlineUnit = BITMAP_SCANLINE_UNIT;
+    screenInfo.bitmapScanlinePad = BITMAP_SCANLINE_PAD;
+    screenInfo.bitmapBitOrder = BITMAP_BIT_ORDER;
+    screenInfo.numPixmapFormats = NumFormats;
 
     /* initialize screens */
 

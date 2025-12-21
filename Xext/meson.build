@@ -4,6 +4,7 @@ srcs_xext = [
     'shape.c',
     'sleepuntil.c',
     'sync.c',
+    'xace.c',
     'xcmisc.c',
     'xtest.c',
 ]
@@ -33,16 +34,12 @@ if build_screensaver
     srcs_xext += 'saver.c'
 endif
 
-if build_xace
-    srcs_xext += 'xace.c'
-endif
-
 if build_xf86bigfont
     srcs_xext += 'xf86bigfont.c'
 endif
 
 if build_xinerama
-    srcs_xext += ['panoramiX.c', 'panoramiXprocs.c', 'panoramiXSwap.c']
+    srcs_xext += ['panoramiX.c', 'panoramiXprocs.c']
 endif
 
 if build_xsecurity
@@ -64,12 +61,8 @@ libxserver_xext = static_library('xserver_xext',
     dependencies: common_dep,
 )
 
-libxserver_xext_vidmode = static_library('xserver_xext_vidmode',
-    'vidmode.c',
-    include_directories: inc,
-    dependencies: common_dep,
-)
-
 if build_xorg
     install_data(hdrs_xext, install_dir: xorgsdkdir)
 endif
+
+subdir('damage')

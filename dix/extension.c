@@ -49,8 +49,10 @@ SOFTWARE.
 #include <X11/X.h>
 #include <X11/Xproto.h>
 
+#include "dix/dix_priv.h"
 #include "dix/extension_priv.h"
 #include "dix/registry_priv.h"
+#include "dix/request_priv.h"
 
 #include "misc.h"
 #include "dixstruct.h"
@@ -62,6 +64,9 @@ SOFTWARE.
 #include "xace.h"
 
 #define LAST_ERROR 255
+
+CallbackListPtr ExtensionAccessCallback = NULL;
+CallbackListPtr ExtensionDispatchCallback = NULL;
 
 static ExtensionEntry **extensions = (ExtensionEntry **) NULL;
 
@@ -272,8 +277,12 @@ ExtensionAvailable(ClientPtr client, ExtensionEntry *ext)
 {
     if (!ext)
         return FALSE;
-    if (XaceHookExtAccess(client, ext) != Success)
+
+    ExtensionAccessCallbackParam rec = { client, ext, DixGetAttrAccess, Success };
+    CallCallbacks(&ExtensionAccessCallback, &rec);
+    if (rec.status != Success)
         return FALSE;
+
     if (!ext->base)
         return FALSE;
     return TRUE;
@@ -283,89 +292,54 @@ int
 ProcQueryExtension(ClientPtr client)
 {
     REQUEST(xQueryExtensionReq);
+    REQUEST_AT_LEAST_SIZE(xQueryExtensionReq);
+
+    if (client->swapped)
+        swaps(&stuff->nbytes);
+
     REQUEST_FIXED_SIZE(xQueryExtensionReq, stuff->nbytes);
 
-    xQueryExtensionReply rep = {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
-        .length = 0,
-        .major_opcode = 0
-    };
+    xQueryExtensionReply reply = { 0 };
 
-    if (!NumExtensions || !extensions)
-        rep.present = xFalse;
-    else {
+    if (NumExtensions && extensions) {
         char extname[PATH_MAX] = { 0 };
         strncpy(extname, (char *) &stuff[1], min(stuff->nbytes, sizeof(extname)-1));
         ExtensionEntry *extEntry = CheckExtension(extname);
 
-        if (!extEntry || !ExtensionAvailable(client, extEntry))
-            rep.present = xFalse;
-        else {
-            rep.present = xTrue;
-            rep.major_opcode = extEntry->base;
-            rep.first_event = extEntry->eventBase;
-            rep.first_error = extEntry->errorBase;
+        if (extEntry && ExtensionAvailable(client, extEntry)) {
+            reply.present = xTrue;
+            reply.major_opcode = extEntry->base;
+            reply.first_event = extEntry->eventBase;
+            reply.first_error = extEntry->errorBase;
         }
     }
 
-    if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-    }
-    WriteToClient(client, sizeof(rep), &rep);
-    return Success;
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }
 
 int
 ProcListExtensions(ClientPtr client)
 {
-    char *bufptr, *buffer;
-    int total_length = 0;
-
     REQUEST_SIZE_MATCH(xReq);
 
-    xListExtensionsReply rep = {
-        .type = X_Reply,
-        .nExtensions = 0,
-        .sequenceNumber = client->sequence,
-        .length = 0
-    };
-    buffer = NULL;
+    xListExtensionsReply reply = { 0 };
+
+    x_rpcbuf_t rpcbuf = { .swapped = client->swapped, .err_clear = TRUE };
 
     if (NumExtensions && extensions) {
-        int i;
-
-        for (i = 0; i < NumExtensions; i++) {
-            /* call callbacks to find out whether to show extension */
+        for (int i = 0; i < NumExtensions; i++) {
             if (!ExtensionAvailable(client, extensions[i]))
                 continue;
 
-            total_length += strlen(extensions[i]->name) + 1;
-            rep.nExtensions += 1;
-        }
-        rep.length = bytes_to_int32(total_length);
-        buffer = bufptr = calloc(1, total_length);
-        if (!buffer)
-            return BadAlloc;
-        for (i = 0; i < NumExtensions; i++) {
-            int len;
+            int len = strlen(extensions[i]->name);
 
-            if (!ExtensionAvailable(client, extensions[i]))
-                continue;
+            reply.nExtensions++;
 
-            *bufptr++ = len = strlen(extensions[i]->name);
-            memcpy(bufptr, extensions[i]->name, len);
-            bufptr += len;
+            /* write a pascal string */
+            x_rpcbuf_write_CARD8(&rpcbuf, len);
+            x_rpcbuf_write_CARD8s(&rpcbuf, (CARD8*)extensions[i]->name, len);
         }
     }
 
-    if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-    }
-    WriteToClient(client, sizeof(rep), &rep);
-    WriteToClient(client, total_length, buffer);
-
-    free(buffer);
-    return Success;
+    return X_SEND_REPLY_WITH_RPCBUF(client, reply, rpcbuf);
 }

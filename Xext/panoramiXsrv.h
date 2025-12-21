@@ -1,8 +1,7 @@
-
-#include <dix-config.h>
-
 #ifndef _PANORAMIXSRV_H_
 #define _PANORAMIXSRV_H_
+
+#include <dix-config.h>
 
 #include "panoramiX.h"
 
@@ -50,12 +49,10 @@ void XineramaGetImageData(DrawablePtr *pDrawables,
 static inline void
 panoramix_setup_ids(PanoramiXRes * resource, ClientPtr client, XID base_id)
 {
-    int j;
-
     resource->info[0].id = base_id;
-    FOR_NSCREENS_FORWARD_SKIP(j) {
-        resource->info[j].id = FakeClientID(client->index);
-    }
+    XINERAMA_FOR_EACH_SCREEN_FORWARD_SKIP0({
+        resource->info[walkScreenIdx].id = FakeClientID(client->index);
+    });
 }
 
 #endif                          /* _PANORAMIXSRV_H_ */

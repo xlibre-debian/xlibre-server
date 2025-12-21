@@ -38,6 +38,7 @@
 #include <X11/Xproto.h>
 
 #include "dix/screen_hooks_priv.h"
+#include "include/extinit.h"
 
 #include "scrnintstr.h"
 #include "resource.h"
@@ -151,8 +152,7 @@ xf86XvMCScreenInit(ScreenPtr pScreen,
 {
     XvMCAdaptorPtr pAdapt;
     xf86XvMCScreenPtr pScreenPriv;
-    XvScreenPtr pxvs = (XvScreenPtr) dixLookupPrivate(&pScreen->devPrivates,
-                                                      XF86XvScreenKey);
+    XvScreenPtr pxvs = dixLookupPrivate(&pScreen->devPrivates, XvGetScreenKey());
     int i, j;
 
     if (noXvExtension)

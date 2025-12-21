@@ -64,6 +64,7 @@
 #include "dix/dix_priv.h"
 #include "dix/input_priv.h"
 #include "include/property.h"
+#include "hw/xfree86/common/action_priv.h"
 #include "mi/mi_priv.h"
 #include "os/log_priv.h"
 
@@ -72,6 +73,7 @@
 #include "xf86Priv.h"
 #include "xf86_os_support.h"
 #include "xf86_OSlib.h"
+#include "xf86platformBus_priv.h"
 
 #ifdef XFreeXDGA
 #include "dgaproc.h"
@@ -89,9 +91,9 @@
 #include "dpmsproc.h"
 #endif
 
-#include "xf86platformBus.h"
-
 #include "../os-support/linux/systemd-logind.h"
+#include "seatd-libseat.h"
+
 
 extern void (*xf86OSPMClose) (void);
 
@@ -183,7 +185,9 @@ xf86ProcessActionEvent(ActionEvent action, void *arg)
             int vtno = *((int *) arg);
 
             if (vtno != xf86Info.vtno) {
-                if (!xf86VTActivate(vtno)) {
+                if (seatd_libseat_controls_session()) {
+                    seatd_libseat_switch_session(vtno);
+                } else if (!xf86VTActivate(vtno)) {
                     ErrorF("Failed to switch from vt%02d to vt%02d: %s\n",
                            xf86Info.vtno, vtno, strerror(errno));
                 }
@@ -192,7 +196,9 @@ xf86ProcessActionEvent(ActionEvent action, void *arg)
         break;
     case ACTION_SWITCHSCREEN_NEXT:
         if (!xf86Info.dontVTSwitch) {
-            if (!xf86VTActivate(xf86Info.vtno + 1)) {
+            if (seatd_libseat_controls_session()) {
+                seatd_libseat_switch_session(xf86Info.vtno + 1);
+            } else if (!xf86VTActivate(xf86Info.vtno + 1)) {
                 /* If first try failed, assume this is the last VT and
                  * try wrapping around to the first vt.
                  */
@@ -205,7 +211,9 @@ xf86ProcessActionEvent(ActionEvent action, void *arg)
         break;
     case ACTION_SWITCHSCREEN_PREV:
         if (!xf86Info.dontVTSwitch && xf86Info.vtno > 0) {
-            if (!xf86VTActivate(xf86Info.vtno - 1)) {
+            if (seatd_libseat_controls_session()) {
+                seatd_libseat_switch_session(xf86Info.vtno - 1);
+            } else if (!xf86VTActivate(xf86Info.vtno - 1)) {
                 /* Don't know what the maximum VT is, so can't wrap around */
                 ErrorF("Failed to switch from vt%02d to previous vt: %s\n",
                        xf86Info.vtno, strerror(errno));
@@ -226,8 +234,10 @@ xf86ProcessActionEvent(ActionEvent action, void *arg)
 void
 xf86Wakeup(void *blockData, int err)
 {
-    if (xf86VTSwitchPending())
-        xf86VTSwitch();
+    if (xf86VTSwitchPending() ||
+        (dispatchException & DE_TERMINATE)){
+            xf86VTSwitch();
+    }
 }
 
 /*
@@ -305,6 +315,7 @@ static void xf86DisableInputDeviceForVTSwitch(InputInfoPtr pInfo)
 
     xf86ReleaseKeys(pInfo->dev);
     ProcessInputEvents();
+    seatd_libseat_close_device(pInfo);
     DisableDevice(pInfo->dev, TRUE);
 }
 
@@ -324,14 +335,10 @@ xf86EnableInputDeviceForVTSwitch(InputInfoPtr pInfo)
 static void
 xf86UpdateHasVTProperty(Bool hasVT)
 {
-    Atom property_name;
     int32_t value = hasVT ? 1 : 0;
     int i;
 
-    property_name = MakeAtom(HAS_VT_ATOM_NAME, sizeof(HAS_VT_ATOM_NAME) - 1,
-                             FALSE);
-    if (property_name == BAD_RESOURCE)
-        FatalError("Failed to retrieve \"HAS_VT\" atom\n");
+    Atom property_name = dixAddAtom(HAS_VT_ATOM_NAME);
     for (i = 0; i < xf86NumScreens; i++) {
         dixChangeWindowProperty(serverClient,
                                 xf86ScrnToScreen(xf86Screens[i])->root,
@@ -368,7 +375,7 @@ void xf86DisableGeneralHandler(void *handler) {
     _xf86DisableGeneralHandler(handler);
 }
 
-static void
+void
 xf86VTLeave(void)
 {
     int i;
@@ -494,7 +501,7 @@ xf86VTEnter(void)
     dixSaveScreens(serverClient, SCREEN_SAVER_FORCER, ScreenSaverReset);
 
     for (pInfo = xf86InputDevs; pInfo; pInfo = pInfo->next) {
-        /* Devices with server managed fds get enabled on logind resume */
+        /* Devices with server managed fds get enabled on logind/libseat resume */
         if (!(pInfo->flags & XI86_SERVER_FD))
             xf86EnableInputDeviceForVTSwitch(pInfo);
     }
@@ -523,6 +530,9 @@ static void
 xf86VTSwitch(void)
 {
     DebugF("xf86VTSwitch()\n");
+
+    if(!(dispatchException & DE_TERMINATE))
+        assert(!seatd_libseat_controls_session());
 
 #ifdef XFreeXDGA
     if (!DGAVTSwitch())

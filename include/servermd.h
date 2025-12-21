@@ -68,24 +68,9 @@ SOFTWARE.
 #define GLYPHPADBYTES           4
 #endif
 
-/* size of buffer to use with GetImage, measured in bytes. There's obviously
- * a trade-off between the amount of heap used and the number of times the
- * ddx routine has to be called.
- */
-#ifndef IMAGE_BUFSIZE
-#define IMAGE_BUFSIZE		(64*1024)
-#endif
-
-/* pad scanline to a longword */
-#ifndef BITMAP_SCANLINE_UNIT
-#define BITMAP_SCANLINE_UNIT	32
-#endif
-
-#ifndef BITMAP_SCANLINE_PAD
 #define BITMAP_SCANLINE_PAD  32
 #define LOG2_BITMAP_PAD		5
 #define LOG2_BYTES_PER_SCANLINE_PAD	2
-#endif
 
 #include <X11/Xfuncproto.h>
 /*

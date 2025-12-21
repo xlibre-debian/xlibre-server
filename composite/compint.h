@@ -40,11 +40,6 @@
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-
-#ifdef HAVE_DIX_CONFIG_H
-#include <dix-config.h>
-#endif
-
 #ifndef _COMPINT_H_
 #define _COMPINT_H_
 
@@ -68,7 +63,7 @@
 #include "privates.h"
 #include "mi.h"
 #include "damage.h"
-#include "damageextint.h"
+#include "Xext/damage/damageextint.h"
 #include "xfixes.h"
 #include <X11/extensions/compositeproto.h>
 #include "compositeext.h"

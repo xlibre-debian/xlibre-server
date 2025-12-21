@@ -31,6 +31,9 @@
 #ifdef HAVE_XWIN_CONFIG_H
 #include <xwin-config.h>
 #endif
+
+#include "dix/screensaver_priv.h"
+
 #include "win.h"
 #include "winmsg.h"
 
@@ -40,6 +43,7 @@ winBlockHandler(ScreenPtr pScreen, void *pTimeout)
 {
     winScreenPriv(pScreen);
 
+#ifndef HAS_DEVWINDOWS
     struct timeval **tvp = pTimeout;
 
     if (*tvp != NULL) {
@@ -59,6 +63,7 @@ winBlockHandler(ScreenPtr pScreen, void *pTimeout)
         (*tvp)->tv_usec = 100;
       }
     }
+#endif
 
     /* Signal threaded modules to begin */
     if (pScreenPriv != NULL && !pScreenPriv->fServerStarted) {

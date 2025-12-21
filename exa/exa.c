@@ -39,9 +39,9 @@
 
 DevPrivateKeyRec exaScreenPrivateKeyRec;
 
-#ifdef MITSHM
+#ifdef CONFIG_MITSHM
 static ShmFuncs exaShmFuncs = { NULL, NULL };
-#endif
+#endif /* CONFIG_MITSHM */
 
 /**
  * exaGetPixmapOffset() returns the offset (in bytes) within the framebuffer of
@@ -398,7 +398,7 @@ exaFinishAccess(DrawablePtr pDrawable, int index)
 
     /* Catch unbalanced Prepare/FinishAccess calls. */
     if (i == EXA_NUM_PREPARE_INDICES)
-        EXA_FatalErrorDebugWithRet(("EXA bug: FinishAccess called without PrepareAccess for pixmap 0x%p.\n", pPixmap),);
+        EXA_FatalErrorDebugWithRet(("EXA bug: FinishAccess called without PrepareAccess for pixmap %p.\n", (void *)pPixmap),);
 
     pExaScr->access[i].pixmap = NULL;
 
@@ -910,12 +910,12 @@ exaDriverInit(ScreenPtr pScreen, ExaDriverPtr pScreenInfo)
         wrap(pExaScr, ps, AddTraps, ExaCheckAddTraps);
     }
 
-#ifdef MITSHM
+#ifdef CONFIG_MITSHM
     /*
      * Don't allow shared pixmaps.
      */
     ShmRegisterFuncs(pScreen, &exaShmFuncs);
-#endif
+#endif /* CONFIG_MITSHM */
     /*
      * Hookup offscreen pixmaps
      */

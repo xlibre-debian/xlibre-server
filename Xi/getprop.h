@@ -22,19 +22,8 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
-
-#ifdef HAVE_DIX_CONFIG_H
-#include <dix-config.h>
-#endif
-
 #ifndef GETPROP_H
 #define GETPROP_H 1
-
-int SProcXGetDeviceDontPropagateList(ClientPtr  /* client */
-    );
-
-int ProcXGetDeviceDontPropagateList(ClientPtr   /* client */
-    );
 
 XEventClass *ClassFromMask(XEventClass * /* buf */ ,
                            Mask /* mask */ ,

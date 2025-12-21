@@ -52,12 +52,15 @@ SOFTWARE.
 
 #include <dix-config.h>
 
-#include "inputstr.h"           /* DeviceIntPtr      */
 #include <X11/extensions/XI.h>
 #include <X11/extensions/XIproto.h>
-#include "exglobals.h"
 
-#include "getfctl.h"
+#include "dix/dix_priv.h"
+#include "dix/request_priv.h"
+#include "dix/rpcbuf_priv.h"
+#include "Xi/handlers.h"
+
+#include "inputstr.h"           /* DeviceIntPtr      */
 
 /***********************************************************************
  *
@@ -80,6 +83,7 @@ CopySwapKbdFeedback(ClientPtr client, KbdFeedbackPtr k, char **buf)
     k2->pitch = k->ctrl.bell_pitch;
     k2->duration = k->ctrl.bell_duration;
     k2->led_mask = k->ctrl.leds;
+    k2->led_values = k->ctrl.leds;
     k2->global_auto_repeat = k->ctrl.autoRepeat;
     for (i = 0; i < 32; i++)
         k2->auto_repeats[i] = k->ctrl.autoRepeats[i];
@@ -244,7 +248,6 @@ int
 ProcXGetFeedbackControl(ClientPtr client)
 {
     int rc, total_length = 0;
-    char *savbuf;
     DeviceIntPtr dev;
     KbdFeedbackPtr k;
     PtrFeedbackPtr p;
@@ -260,45 +263,41 @@ ProcXGetFeedbackControl(ClientPtr client)
     if (rc != Success)
         return rc;
 
-    xGetFeedbackControlReply rep = {
-        .repType = X_Reply,
+    xGetFeedbackControlReply reply = {
         .RepType = X_GetFeedbackControl,
-        .sequenceNumber = client->sequence,
     };
 
     for (k = dev->kbdfeed; k; k = k->next) {
-        rep.num_feedbacks++;
+        reply.num_feedbacks++;
         total_length += sizeof(xKbdFeedbackState);
     }
     for (p = dev->ptrfeed; p; p = p->next) {
-        rep.num_feedbacks++;
+        reply.num_feedbacks++;
         total_length += sizeof(xPtrFeedbackState);
     }
     for (s = dev->stringfeed; s; s = s->next) {
-        rep.num_feedbacks++;
+        reply.num_feedbacks++;
         total_length += sizeof(xStringFeedbackState) +
             (s->ctrl.num_symbols_supported * sizeof(KeySym));
     }
     for (i = dev->intfeed; i; i = i->next) {
-        rep.num_feedbacks++;
+        reply.num_feedbacks++;
         total_length += sizeof(xIntegerFeedbackState);
     }
     for (l = dev->leds; l; l = l->next) {
-        rep.num_feedbacks++;
+        reply.num_feedbacks++;
         total_length += sizeof(xLedFeedbackState);
     }
     for (b = dev->bell; b; b = b->next) {
-        rep.num_feedbacks++;
+        reply.num_feedbacks++;
         total_length += sizeof(xBellFeedbackState);
     }
 
     if (total_length == 0)
         return BadMatch;
 
-    char *buf = (char *) calloc(1, total_length);
-    if (!buf)
-        return BadAlloc;
-    savbuf = buf;
+    x_rpcbuf_t rpcbuf = { .swapped = client->swapped, .err_clear = TRUE };
+    char *buf = x_rpcbuf_reserve(&rpcbuf, total_length);
 
     for (k = dev->kbdfeed; k; k = k->next)
         CopySwapKbdFeedback(client, k, &buf);
@@ -313,15 +312,8 @@ ProcXGetFeedbackControl(ClientPtr client)
     for (b = dev->bell; b; b = b->next)
         CopySwapBellFeedback(client, b, &buf);
 
-    rep.length = bytes_to_int32(total_length);
-
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swaps(&rep.num_feedbacks);
+        swaps(&reply.num_feedbacks);
     }
-    WriteToClient(client, sizeof(xGetFeedbackControlReply), &rep);
-    WriteToClient(client, total_length, savbuf);
-    free(savbuf);
-    return Success;
+    return X_SEND_REPLY_WITH_RPCBUF(client, reply, rpcbuf);
 }

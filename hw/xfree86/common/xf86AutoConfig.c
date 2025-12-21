@@ -33,6 +33,8 @@
 #include <xorg-config.h>
 #endif
 
+#include "os/osdep.h"
+
 #include "xf86.h"
 #include "xf86Parser_priv.h"
 #include "xf86tokens.h"
@@ -41,7 +43,7 @@
 #include "xf86Priv.h"
 #include "xf86_os_support.h"
 #include "xf86_OSlib.h"
-#include "xf86platformBus.h"
+#include "xf86platformBus_priv.h"
 #include "xf86pciBus.h"
 #ifdef __sparc__
 #include "xf86sbusBus_priv.h"
@@ -303,7 +305,7 @@ listPossibleVideoDrivers(XF86MatchedDrivers *md)
 #if defined(__linux__)
     xf86AddMatchedDriver(md, "fbdev");
 #endif
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
     xf86AddMatchedDriver(md, "scfb");
 #endif
 

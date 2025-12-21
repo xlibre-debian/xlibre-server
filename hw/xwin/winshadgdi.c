@@ -198,12 +198,12 @@ winQueryRGBBitsAndMasks(ScreenPtr pScreen)
         pdw = (DWORD *) ((CARD8 *) pbmih + sizeof(BITMAPINFOHEADER));
 
 #if ENABLE_DEBUG
-        winDebug("%s - Masks: %08x %08x %08x\n", __FUNCTION__,
+        winDebug("%s - Masks: %08x %08x %08x\n", __func__,
                  (unsigned int)pdw[0], (unsigned int)pdw[1], (unsigned int)pdw[2]);
-        winDebug("%s - Bitmap: %dx%d %d bpp %d planes\n", __FUNCTION__,
+        winDebug("%s - Bitmap: %dx%d %d bpp %d planes\n", __func__,
                  (int)pbmih->biWidth, (int)pbmih->biHeight, pbmih->biBitCount,
                  pbmih->biPlanes);
-        winDebug("%s - Compression: %u %s\n", __FUNCTION__,
+        winDebug("%s - Compression: %u %s\n", __func__,
                  (unsigned int)pbmih->biCompression,
                  (pbmih->biCompression ==
                   BI_RGB ? "(BI_RGB)" : (pbmih->biCompression ==
@@ -582,10 +582,7 @@ winCloseScreenShadowGDI(ScreenPtr pScreen)
     pScreenPriv->fClosed = TRUE;
     pScreenPriv->fActive = FALSE;
 
-    /* Call the wrapped CloseScreen procedure */
-    WIN_UNWRAP(CloseScreen);
-    if (pScreen->CloseScreen)
-        fReturn = (*pScreen->CloseScreen) (pScreen);
+    fReturn = fbCloseScreen(pScreen);
 
     /* Delete the window property */
     RemoveProp(pScreenPriv->hwndScreen, WIN_SCR_PROP);

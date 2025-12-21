@@ -52,12 +52,15 @@ SOFTWARE.
 
 #include <dix-config.h>
 
-#include "inputstr.h"           /* DeviceIntPtr      */
 #include <X11/extensions/XI.h>
 #include <X11/extensions/XIproto.h>
-#include "exglobals.h"
 
-#include "getbmap.h"
+#include "dix/dix_priv.h"
+#include "dix/request_priv.h"
+#include "dix/rpcbuf_priv.h"
+#include "Xi/handlers.h"
+
+#include "inputstr.h"           /* DeviceIntPtr      */
 
 /***********************************************************************
  *
@@ -83,19 +86,13 @@ ProcXGetDeviceButtonMapping(ClientPtr client)
     if (b == NULL)
         return BadMatch;
 
-    xGetDeviceButtonMappingReply rep = {
-        .repType = X_Reply,
+    x_rpcbuf_t rpcbuf = { .swapped = client->swapped, .err_clear = TRUE };
+    x_rpcbuf_write_CARD8s(&rpcbuf, &b->map[1], b->numButtons);
+
+    xGetDeviceButtonMappingReply reply = {
         .RepType = X_GetDeviceButtonMapping,
-        .sequenceNumber = client->sequence,
         .nElts = b->numButtons,
-        .length = bytes_to_int32(b->numButtons),
     };
 
-    if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-    }
-    WriteToClient(client, sizeof(xGetDeviceButtonMappingReply), &rep);
-    WriteToClient(client, rep.nElts, &b->map[1]);
-    return Success;
+    return X_SEND_REPLY_WITH_RPCBUF(client, reply, rpcbuf);
 }

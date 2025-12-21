@@ -66,6 +66,8 @@
 #include "windowstr.h"
 #include "scrnintstr.h"
 #include "../os-support/linux/systemd-logind.h"
+#include "seatd-libseat.h"
+
 #include "xf86VGAarbiter_priv.h"
 #include "loaderProcs.h"
 
@@ -184,14 +186,8 @@ xf86PrintBanner(void)
         }
     }
 #endif
-#if defined(BUILDERSTRING)
-    xf86ErrorFVerb(0, "%s \n", BUILDERSTRING);
-#endif
     xf86ErrorFVerb(0, "Current version of pixman: %s\n",
                    pixman_version_string());
-    xf86ErrorFVerb(0, "\tBefore reporting problems, check "
-                   "" __VENDORDWEBSUPPORT__ "\n"
-                   "\tto make sure that you have the latest version.\n");
 }
 
 Bool
@@ -224,7 +220,7 @@ static void
 AddSeatId(CallbackListPtr *pcbl, void *data, void *screen)
 {
     ScreenPtr pScreen = screen;
-    Atom SeatAtom = MakeAtom(SEAT_ATOM_NAME, sizeof(SEAT_ATOM_NAME) - 1, TRUE);
+    Atom SeatAtom = dixAddAtom(SEAT_ATOM_NAME);
     int err;
 
     err = dixChangeWindowProperty(serverClient, pScreen->root, SeatAtom,
@@ -242,9 +238,8 @@ AddVTAtoms(CallbackListPtr *pcbl, void *data, void *screen)
 #define VT_ATOM_NAME         "XFree86_VT"
     int err, HasVT = 1;
     ScreenPtr pScreen = screen;
-    Atom VTAtom = MakeAtom(VT_ATOM_NAME, sizeof(VT_ATOM_NAME) - 1, TRUE);
-    Atom HasVTAtom = MakeAtom(HAS_VT_ATOM_NAME, sizeof(HAS_VT_ATOM_NAME) - 1,
-                              TRUE);
+    Atom VTAtom = dixAddAtom(VT_ATOM_NAME);
+    Atom HasVTAtom = dixAddAtom(HAS_VT_ATOM_NAME);
 
     err = dixChangeWindowProperty(serverClient, pScreen->root, VTAtom,
                                   XA_INTEGER, 32, PropModeReplace, 1,
@@ -285,7 +280,7 @@ xf86EnsureRANDR(ScreenPtr pScreen)
  *      collecting the pixmap formats.
  */
 void
-InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
+InitOutput(int argc, char **argv)
 {
     int i, j, k, scr_index;
     const char **modulelist;
@@ -330,7 +325,7 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
         LoaderInit();
 
         /* Tell the loader the default module search path */
-        LoaderSetPath(xf86ModulePath);
+        LoaderSetPath(NULL, xf86ModulePath);
 
         if (xf86Info.ignoreABI) {
             LoaderSetIgnoreAbi();
@@ -340,6 +335,7 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
             DoShowOptions();
 
         dbus_core_init();
+        seatd_libseat_init(xf86VTKeepTtyIsSet());
         systemd_logind_init();
 
         /* Do a general bus probe.  This will be a PCI probe for x86 platforms */
@@ -433,9 +429,11 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
                 xorgHWOpenConsole = TRUE;
         }
 
-        if (xorgHWOpenConsole)
-            xf86OpenConsole();
-        else
+        if (xorgHWOpenConsole) {
+            if (!seatd_libseat_controls_session()) {
+                xf86OpenConsole();
+            }
+        } else
             xf86Info.dontVTSwitch = TRUE;
 
 	/* Enable full I/O access */
@@ -445,7 +443,6 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
         if (xf86BusConfig() == FALSE)
             return;
 
-        xf86PostProbe();
 
         /*
          * Sort the drivers to match the requested ording.  Using a slow
@@ -568,8 +565,11 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
         /*
          * serverGeneration != 1; some OSs have to do things here, too.
          */
-        if (xorgHWOpenConsole)
-            xf86OpenConsole();
+        if (xorgHWOpenConsole) {
+            if (!seatd_libseat_controls_session()) {
+                xf86OpenConsole();
+            }
+        }
 
         /*
            should we reopen it here? We need to deal with an already opened
@@ -593,16 +593,16 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
         AddCallback(&RootWindowFinalizeCallback, AddSeatId, SeatId);
 
     /*
-     * Use the previously collected parts to setup pScreenInfo
+     * Use the previously collected parts to setup screenInfo
      */
 
-    pScreenInfo->imageByteOrder = xf86Screens[0]->imageByteOrder;
-    pScreenInfo->bitmapScanlinePad = xf86Screens[0]->bitmapScanlinePad;
-    pScreenInfo->bitmapScanlineUnit = xf86Screens[0]->bitmapScanlineUnit;
-    pScreenInfo->bitmapBitOrder = xf86Screens[0]->bitmapBitOrder;
-    pScreenInfo->numPixmapFormats = numFormats;
+    screenInfo.imageByteOrder = xf86Screens[0]->imageByteOrder;
+    screenInfo.bitmapScanlinePad = xf86Screens[0]->bitmapScanlinePad;
+    screenInfo.bitmapScanlineUnit = xf86Screens[0]->bitmapScanlineUnit;
+    screenInfo.bitmapBitOrder = xf86Screens[0]->bitmapBitOrder;
+    screenInfo.numPixmapFormats = numFormats;
     for (i = 0; i < numFormats; i++)
-        pScreenInfo->formats[i] = formats[i];
+        screenInfo.formats[i] = formats[i];
 
     /* Make sure the server's VT is active */
 
@@ -751,6 +751,8 @@ CloseInput(void)
 {
     config_fini();
     mieqFini();
+    /* strictly speaking the below is not related to input, but ... */
+    LoaderClose();
 }
 
 /*
@@ -845,9 +847,13 @@ ddxGiveUp(enum ExitCode error)
         xf86Screens[i]->vtSema = FALSE;
     }
 
-    if (xorgHWOpenConsole)
-        xf86CloseConsole();
+    if (xorgHWOpenConsole) {
+        if (!seatd_libseat_controls_session()) {
+            xf86CloseConsole();
+        }
+    }
 
+    seatd_libseat_fini();
     systemd_logind_fini();
     dbus_core_fini();
 
@@ -857,8 +863,7 @@ ddxGiveUp(enum ExitCode error)
 void
 OsVendorFatalError(const char *f, va_list args)
 {
-    ErrorF("\nPlease consult the " XVENDORNAME " support \n\t at "
-           __VENDORDWEBSUPPORT__ "\n for help. \n");
+    ErrorF("\nPlease consult the XLibre support: https://www.xlibre.net/\n");
     if (xf86LogFile && xf86LogFileWasOpened)
         ErrorF("Please also check the log file at \"%s\" for additional "
                "information.\n", xf86LogFile);
@@ -1325,13 +1330,6 @@ xf86GetBppFromDepth(ScrnInfoPtr pScrn, int depth)
     else
         return 0;
 }
-
-#ifdef DDXBEFORERESET
-void
-ddxBeforeReset(void)
-{
-}
-#endif
 
 #if INPUTTHREAD
 /** This function is called in Xserver/os/inputthread.c when starting

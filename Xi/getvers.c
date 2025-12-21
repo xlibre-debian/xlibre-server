@@ -52,30 +52,17 @@ SOFTWARE.
 
 #include <dix-config.h>
 
-#include "inputstr.h"           /* DeviceIntPtr      */
 #include <X11/extensions/XI.h>
 #include <X11/extensions/XIproto.h>
-#include "exevents.h"
+
+#include "dix/dix_priv.h"
+#include "dix/request_priv.h"
+#include "Xi/handlers.h"
+
+#include "inputstr.h"           /* DeviceIntPtr      */
 #include "exglobals.h"
 
-#include "getvers.h"
-
 XExtensionVersion XIVersion;
-
-/***********************************************************************
- *
- * Handle a request from a client with a different byte order than us.
- *
- */
-
-int _X_COLD
-SProcXGetExtensionVersion(ClientPtr client)
-{
-    REQUEST(xGetExtensionVersionReq);
-    REQUEST_AT_LEAST_SIZE(xGetExtensionVersionReq);
-    swaps(&stuff->nbytes);
-    return (ProcXGetExtensionVersion(client));
-}
 
 /***********************************************************************
  *
@@ -89,27 +76,24 @@ ProcXGetExtensionVersion(ClientPtr client)
     REQUEST(xGetExtensionVersionReq);
     REQUEST_AT_LEAST_SIZE(xGetExtensionVersionReq);
 
+    if (client->swapped)
+        swaps(&stuff->nbytes);
+
     if (client->req_len != bytes_to_int32(sizeof(xGetExtensionVersionReq) +
                                         stuff->nbytes))
         return BadLength;
 
-    xGetExtensionVersionReply rep = {
-        .repType = X_Reply,
+    xGetExtensionVersionReply reply = {
         .RepType = X_GetExtensionVersion,
-        .sequenceNumber = client->sequence,
         .major_version = XIVersion.major_version,
         .minor_version = XIVersion.minor_version,
         .present = TRUE
     };
 
     if (client->swapped) {
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swaps(&rep.major_version);
-        swaps(&rep.minor_version);
+        swaps(&reply.major_version);
+        swaps(&reply.minor_version);
     }
 
-    WriteToClient(client, sizeof(xGetExtensionVersionReply), &rep);
-
-    return Success;
+    return X_SEND_REPLY_SIMPLE(client, reply);
 }

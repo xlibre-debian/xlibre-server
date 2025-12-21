@@ -20,7 +20,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <dix-config.h>
+#include <kdrive-config.h>
 #include "kdrive.h"
 
 #include "dix/colormap_priv.h"
@@ -28,9 +28,7 @@
 /*
  * Put the entire colormap into the DAC
  */
-
-static void
-KdSetColormap(ScreenPtr pScreen)
+void KdSetColormap(ScreenPtr pScreen)
 {
     KdScreenPriv(pScreen);
     ColormapPtr pCmap = pScreenPriv->pInstalledmap;
@@ -72,6 +70,11 @@ KdSetColormap(ScreenPtr pScreen)
     (*pScreenPriv->card->cfuncs->putColors) (pCmap->pScreen,
                                              (1 << pScreenPriv->screen->fb.
                                               depth), defs);
+
+
+    /* recolor hardware cursor */
+    if (pScreenPriv->card->cfuncs->recolorCursor)
+        (*pScreenPriv->card->cfuncs->recolorCursor) (pCmap->pScreen, 0, 0);
 }
 
 /*
@@ -231,4 +234,9 @@ KdStoreColors(ColormapPtr pCmap, int ndef, xColorItem * pdefs)
     }
 
     (*pScreenPriv->card->cfuncs->putColors) (pCmap->pScreen, ndef, pdefs);
+
+    /* recolor hardware cursor */
+    if (pScreenPriv->card->cfuncs->recolorCursor)
+        (*pScreenPriv->card->cfuncs->recolorCursor) (pCmap->pScreen, ndef,
+                                                     pdefs);
 }

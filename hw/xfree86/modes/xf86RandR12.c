@@ -26,8 +26,10 @@
 
 #include <X11/extensions/render.h>
 
+#include "dix/dix_priv.h"
 #include "dix/input_priv.h"
 #include "dix/screenint_priv.h"
+#include "include/extinit.h"
 
 #include "xf86.h"
 #include "os.h"
@@ -79,7 +81,7 @@ static Bool xf86RandR12Init12(ScreenPtr pScreen);
 static Bool xf86RandR12CreateScreenResources12(ScreenPtr pScreen);
 #endif
 
-static int xf86RandR12Generation;
+static x_server_generation_t xf86RandR12Generation;
 
 static DevPrivateKeyRec xf86RandR12KeyRec;
 
@@ -1803,7 +1805,7 @@ xf86RandR12CreateMonitors(ScreenPtr pScreen)
             return;
         monitor->pScreen = pScreen;
         snprintf(buf, 25, "Auto-Monitor-%d", tile_info->group_id);
-        monitor->name = MakeAtom(buf, strlen(buf), TRUE);
+        monitor->name = dixAddAtom(buf);
         monitor->primary = 0;
         monitor->automatic = TRUE;
         memset(&monitor->geometry.box, 0, sizeof(monitor->geometry.box));

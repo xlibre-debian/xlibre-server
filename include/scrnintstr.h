@@ -88,7 +88,7 @@ typedef struct _ScreenSaverStuff {
     Bool (*ExternalScreenSaver) (ScreenPtr /*pScreen */ ,
                                  int /*xstate */ ,
                                  Bool /*force */ );
-} ScreenSaverStuffRec;
+} ScreenSaverStuffRec, *ScreenSaverStuffPtr;
 
 typedef enum {
     WINDOW_VRR_DISABLED = 0,
@@ -620,6 +620,11 @@ typedef struct _Screen {
     SetScreenPixmapProcPtr SetScreenPixmap;
     NameWindowPixmapProcPtr NameWindowPixmap;
 
+#ifdef CONFIG_LEGACY_NVIDIA_PADDING
+    /* This field is used by the 470 and 390 proprietary nvidia DDX driver, and should always be NULL */
+    void* reserved_for_nvidia_470_and_390;
+#endif
+
     unsigned int totalPixmapSize;
 
     MarkWindowProcPtr MarkWindow;
@@ -714,7 +719,7 @@ typedef struct _ScreenInfo {
     int bitmapScanlinePad;
     int bitmapBitOrder;
     int numPixmapFormats;
-     PixmapFormatRec formats[MAXFORMATS];
+    PixmapFormatRec formats[MAXFORMATS];
     int numScreens;
     ScreenPtr screens[MAXSCREENS];
     int numGPUScreens;
@@ -726,9 +731,5 @@ typedef struct _ScreenInfo {
 } ScreenInfo;
 
 extern _X_EXPORT ScreenInfo screenInfo;
-
-extern _X_EXPORT void InitOutput(ScreenInfo * /*pScreenInfo */ ,
-                                 int /*argc */ ,
-                                 char ** /*argv */ );
 
 #endif                          /* SCREENINTSTRUCT_H */

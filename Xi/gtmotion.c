@@ -55,27 +55,13 @@ SOFTWARE.
 #include <X11/extensions/XI.h>
 #include <X11/extensions/XIproto.h>
 
+#include "dix/dix_priv.h"
 #include "dix/exevents_priv.h"
+#include "dix/request_priv.h"
+#include "dix/rpcbuf_priv.h"
+#include "Xi/handlers.h"
 
 #include "inputstr.h"           /* DeviceIntPtr      */
-#include "exglobals.h"
-#include "gtmotion.h"
-
-/***********************************************************************
- *
- * Swap the request if server and client have different byte ordering.
- *
- */
-
-int _X_COLD
-SProcXGetDeviceMotionEvents(ClientPtr client)
-{
-    REQUEST(xGetDeviceMotionEventsReq);
-    REQUEST_SIZE_MATCH(xGetDeviceMotionEventsReq);
-    swapl(&stuff->start);
-    swapl(&stuff->stop);
-    return (ProcXGetDeviceMotionEvents(client));
-}
 
 /****************************************************************************
  *
@@ -89,6 +75,11 @@ ProcXGetDeviceMotionEvents(ClientPtr client)
     REQUEST(xGetDeviceMotionEventsReq);
     REQUEST_SIZE_MATCH(xGetDeviceMotionEventsReq);
 
+    if (client->swapped) {
+        swapl(&stuff->start);
+        swapl(&stuff->stop);
+    }
+
     DeviceIntPtr dev;
     int rc = dixLookupDevice(&dev, stuff->deviceid, client, DixReadAccess);
     if (rc != Success)
@@ -101,20 +92,16 @@ ProcXGetDeviceMotionEvents(ClientPtr client)
     if (dev->valuator->motionHintWindow)
         MaybeStopDeviceHint(dev, client);
 
-    xGetDeviceMotionEventsReply rep = {
-        .repType = X_Reply,
+    xGetDeviceMotionEventsReply reply = {
         .RepType = X_GetDeviceMotionEvents,
-        .sequenceNumber = client->sequence,
-        .length = 0,
-        .nEvents = 0,
         .axes = v->numAxes,
         .mode = Absolute        /* XXX we don't do relative at the moment */
     };
 
     TimeStamp start = ClientTimeToServerTime(stuff->start);
     TimeStamp stop = ClientTimeToServerTime(stuff->stop);
-    int length = 0;
-    INT32 *coords = NULL;
+
+    x_rpcbuf_t rpcbuf = { .swapped = client->swapped, .err_clear = TRUE };
 
     if (CompareTimeStamps(start, stop) != LATER &&
         CompareTimeStamps(start, currentTime) != LATER) {
@@ -122,23 +109,18 @@ ProcXGetDeviceMotionEvents(ClientPtr client)
             stop = currentTime;
         if (v->numMotionEvents) {
             const int size = sizeof(Time) + (v->numAxes * sizeof(INT32));
-            rep.nEvents = GetMotionHistory(dev, (xTimecoord **) &coords,   /* XXX */
+            INT32 *coords = NULL;
+            reply.nEvents = GetMotionHistory(dev, (xTimecoord **) &coords,   /* XXX */
                                            start.milliseconds, stop.milliseconds,
                                            (ScreenPtr) NULL, FALSE);
-            length = rep.nEvents * size;
-            rep.length = bytes_to_int32(length);
+            x_rpcbuf_write_INT32s(&rpcbuf, coords, bytes_to_int32(reply.nEvents * size));
+            free(coords);
         }
     }
 
     if (client->swapped) {
-        SwapLongs((CARD32*) coords, rep.length);
-        swaps(&rep.sequenceNumber);
-        swapl(&rep.length);
-        swapl(&rep.nEvents);
+        swapl(&reply.nEvents);
     }
 
-    WriteToClient(client, sizeof(xGetDeviceMotionEventsReply), &rep);
-    WriteToClient(client, length, coords);
-    free(coords);
-    return Success;
+    return X_SEND_REPLY_WITH_RPCBUF(client, reply, rpcbuf);
 }
