@@ -50,9 +50,8 @@
 #include "xf86sbusBus_priv.h"
 
 #include "xf86_OSproc.h"
-#ifdef XSERVER_LIBPCIACCESS
 #include "xf86VGAarbiter_priv.h"
-#endif
+
 /* Entity data */
 EntityPtr *xf86Entities = NULL; /* Bus slots claimed by drivers */
 int xf86NumEntities = 0;
@@ -291,8 +290,13 @@ StringToBusType(const char *busID, const char **retID)
     if (!xf86NameCmp(p, "usb"))
         ret = BUS_USB;
     if (ret != BUS_NONE)
-        if (retID)
-            *retID = busID + strlen(p) + 1;
+        if (retID) {
+            size_t len = strlen(p);
+            if (busID[len] == ':')
+                *retID = busID + len + 1;
+            else
+                *retID = busID + len; /* Points to the terminating null byte */
+        }
     free(s);
     return ret;
 }
