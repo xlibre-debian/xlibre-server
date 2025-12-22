@@ -1,7 +1,7 @@
 DEB_HOST_ARCH_OS ?= $(shell dpkg-architecture -qDEB_HOST_ARCH_OS)
 
 VENDOR = $(shell dpkg-vendor --query Vendor)
-SUPPORT = https://github.com/xlibre-deb
+SUPPORT = https://github.com/xlibre-debian
 
 SOURCE_NAME    :=  xlibre-server
 SOURCE_VERSION := $(shell dpkg-parsechangelog -S Version)
@@ -44,6 +44,7 @@ confflags = \
 
 confflags_main = \
 	-D xephyr=true \
+	-D xfbdev=true \
 	-D xnest=true \
 	-D xvfb=true \
 	\
@@ -67,6 +68,7 @@ confflags_main = \
 # sha1=libnettle because nettlestatic is missing
 confflags_udeb = \
 	-D xephyr=false \
+	-D xfbdev=true \
 	-D xnest=false \
 	-D xvfb=false \
 	\
