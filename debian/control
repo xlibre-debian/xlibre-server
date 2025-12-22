@@ -318,7 +318,7 @@ Depends:
  ${misc:Depends},
 Recommends: libgl1-mesa-dri (>= 7.1~rc1)
 Provides:
- xserver-xephyr (= ${binary:Version}),
+ xserver-xfbdev (= ${binary:Version}),
  xserver
 Description: Linux framebuffer device tiny X server
  Xfbdev is a Linux framebuffer device tiny X server based on
