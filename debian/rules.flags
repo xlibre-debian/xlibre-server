@@ -68,7 +68,6 @@ confflags_main = \
 # sha1=libnettle because nettlestatic is missing
 confflags_udeb = \
 	-D xephyr=false \
-	-D xfbdev=true \
 	-D xnest=false \
 	-D xvfb=false \
 	\
