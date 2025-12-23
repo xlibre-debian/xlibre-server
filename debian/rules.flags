@@ -107,10 +107,12 @@ endif
 ifneq (,$(filter nosystemd,$(DEB_BUILD_PROFILES)))
 	confflags_main += \
 		-D systemd_notify=false \
+		-D seatd_libseat=true \
 		-D systemd_logind=false
 else
 	confflags_main += \
 		-D systemd_notify=true \
+		-D seatd_libseat=false \
 		-D systemd_logind=true
 endif
 

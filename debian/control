@@ -64,6 +64,7 @@ Build-Depends:
  xkb-data,
  x11-utils <!nocheck>,
  x11-xkb-utils,
+ libseat-dev <nosystemd>,
  libbsd-dev,
   libdbus-1-dev (>= 1.0) [linux-any] <!nosystemd>,
   libsystemd-dev [linux-any] <!nosystemd>,
@@ -73,8 +74,8 @@ Build-Depends:
 Build-Depends-Indep: xz-utils
 Standards-Version: 3.9.8
 Rules-Requires-Root: binary-targets
-Vcs-Git: https://github.com/xlibre-deb/xlibre-server.git
-Vcs-Browser: https://github.com/xlibre-deb/xlibre-server
+Vcs-Git: https://github.com/xlibre-debian/xlibre-server.git
+Vcs-Browser: https://github.com/xlibre-debian/xlibre-server
 Homepage: https://github.com/X11Libre
 
 Package: xserver-xlibre-core
