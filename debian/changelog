@@ -1,3 +1,9 @@
+xlibre-server (2:25.1.0-3) unstable; urgency=low
+
+  * Compile with seatd for non-systemd systems
+
+ -- NexusSfan <nexussfan@duck.com>  Tue, 23 Dec 2025 14:52:01 -0800
+
 xlibre-server (2:25.1.0-2) unstable; urgency=low
 
   * Compile Xfbdev
