@@ -1,3 +1,9 @@
+xlibre-server (2:25.1.0-4) unstable; urgency=medium
+
+  * Fix a conflict with Ubuntu's NVIDIA packages
+
+ -- NexusSfan <nexussfan@duck.com>  Sat, 27 Dec 2025 09:52:16 -0800
+
 xlibre-server (2:25.1.0-3) unstable; urgency=low
 
   * Compile with seatd for non-systemd systems
