@@ -94,14 +94,19 @@ confflags_udeb = \
 	-D dri2=true \
 	$(void)
 
+# nvidia drivers don't even exist for hurd
 ifeq ($(DEB_HOST_ARCH_OS), linux)
 	confflags_main += \
 		-D dri3=true \
-		-D xselinux=true
+		-D xselinux=true \
+		-D legacy_nvidia_padding=true \
+		-D legacy_nvidia_340x=true
 else
 	confflags_main += \
 		-D dri3=false \
 		-D xselinux=false
+		-D legacy_nvidia_padding=false \
+		-D legacy_nvidia_340x=false
 endif
 
 ifneq (,$(filter nosystemd,$(DEB_BUILD_PROFILES)))
