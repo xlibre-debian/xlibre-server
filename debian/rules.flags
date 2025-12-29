@@ -104,7 +104,7 @@ ifeq ($(DEB_HOST_ARCH_OS), linux)
 else
 	confflags_main += \
 		-D dri3=false \
-		-D xselinux=false
+		-D xselinux=false \
 		-D legacy_nvidia_padding=false \
 		-D legacy_nvidia_340x=false
 endif
