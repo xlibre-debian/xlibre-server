@@ -1,3 +1,14 @@
+xlibre-server (2:25.1.0-5) unstable; urgency=high
+
+  There is a new flag in the Debian configuration to support legacy
+  NVIDIA drivers.
+
+  It is possible that this could break ABI. Because of this, it is
+  recommended that you reinstall the XLibre pacakges if you encounter
+  issues.
+
+ -- NexusSfan <nexussfan@duck.com>  Tue, 30 Dec 2025 09:48:19 -0800
+
 xorg-server (2:1.18.3-2) unstable; urgency=medium
 
   X now defaults to using built-in modesetting video driver on Intel
