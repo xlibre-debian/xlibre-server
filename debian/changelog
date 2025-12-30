@@ -1,3 +1,9 @@
+xlibre-server (2:25.1.0-5) unstable; urgency=high
+
+  * Update make flags for legacy NVIDIA drivers
+
+ -- NexusSfan <nexussfan@duck.com>  Tue, 30 Dec 2025 09:48:19 -0800
+
 xlibre-server (2:25.1.0-4) unstable; urgency=medium
 
   * Fix a conflict with Ubuntu's NVIDIA packages
