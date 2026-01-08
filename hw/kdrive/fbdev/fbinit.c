@@ -64,6 +64,7 @@ void
 InitInput(int argc, char **argv)
 {
     KdOsAddInputDrivers();
+    KdAddConfigInputDrivers();
     KdInitInput();
 }
 
