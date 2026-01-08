@@ -177,4 +177,56 @@ typedef struct {
     ModuleTearDownProc teardown;
 } XF86ModuleData;
 
-#endif                          /* _XF86STR_H */
+/*
+ * declare module version info structure for an input driver module
+ */
+#define XF86_MODULE_VERSION_INPUT(_name, _major, _minor, _patchlevel)   \
+    static XF86ModuleVersionInfo modVersion = { \
+        .modname      = _name,                  \
+        .vendor       = MODULEVENDORSTRING,     \
+        ._modinfo1_   = MODINFOSTRING1,         \
+        ._modinfo2_   = MODINFOSTRING2,         \
+        .xf86version  = XORG_VERSION_CURRENT,   \
+        .majorversion = _major,                 \
+        .minorversion = _minor,                 \
+        .patchlevel   = _patchlevel,            \
+        .abiclass     = ABI_CLASS_XINPUT,       \
+        .abiversion   = ABI_XINPUT_VERSION,     \
+        .moduleclass  = MOD_CLASS_XINPUT,       \
+    };
+
+/*
+ * declare module version info structure for an video driver module
+ */
+#define XF86_MODULE_VERSION_VIDEO(_name, _major, _minor, _patchlevel)   \
+    static XF86ModuleVersionInfo modVersion = { \
+        .modname      = _name,                  \
+        .vendor       = MODULEVENDORSTRING,     \
+        ._modinfo1_   = MODINFOSTRING1,         \
+        ._modinfo2_   = MODINFOSTRING2,         \
+        .xf86version  = XORG_VERSION_CURRENT,   \
+        .majorversion = _major,                 \
+        .minorversion = _minor,                 \
+        .patchlevel   = _patchlevel,            \
+        .abiclass     = ABI_CLASS_VIDEODRV,     \
+        .abiversion   = ABI_VIDEODRV_VERSION,   \
+        .moduleclass  = MOD_CLASS_VIDEODRV,     \
+    };
+
+#define XF86_MODULE_DATA_INPUT(_modname, _setup, _teardown, _name, _major, _minor, _patchlevel) \
+    XF86_MODULE_VERSION_INPUT(_name, _major, _minor, _patchlevel) \
+    _X_EXPORT XF86ModuleData _modname##ModuleData = { \
+        .vers = &modVersion, \
+        .setup = _setup, \
+        .teardown = _teardown, \
+    };
+
+#define XF86_MODULE_DATA_VIDEO(_modname, _setup, _teardown, _name, _major, _minor, _patchlevel) \
+    XF86_MODULE_VERSION_VIDEO(_name, _major, _minor, _patchlevel) \
+    _X_EXPORT XF86ModuleData _modname##ModuleData = { \
+        .vers = &modVersion, \
+        .setup = _setup, \
+        .teardown = _teardown, \
+    };
+
+#endif /* _XF86MODULE_H */

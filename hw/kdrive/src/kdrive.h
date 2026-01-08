@@ -472,6 +472,8 @@ void
 /* kinput.c */
 void
  KdInitInput(void);
+ void
+ KdAddConfigInputDrivers(void);
 void
  KdCloseInput(void);
 
