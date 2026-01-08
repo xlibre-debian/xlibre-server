@@ -1,3 +1,9 @@
+xlibre-server (2:25.1.1-1) unstable; urgency=medium
+
+  * New upstream version 25.1.1
+
+ -- NexusSfan <nexussfan@duck.com>  Thu, 08 Jan 2025 15:53:54 -0800
+
 xlibre-server (2:25.1.0-5) unstable; urgency=high
 
   * Update make flags for legacy NVIDIA drivers
