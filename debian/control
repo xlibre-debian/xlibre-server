@@ -312,7 +312,7 @@ Conflicts:
  xserver-xorg-legacy,
 
 Package: xserver-xlibre-xfbdev
-Architecture: any
+Architecture: linux-any
 Depends:
  xserver-xlibre-common (>= ${source:Version}),
  ${shlibs:Depends},
