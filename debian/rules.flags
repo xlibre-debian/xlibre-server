@@ -124,6 +124,7 @@ endif
 ifeq ($(DEB_HOST_ARCH_OS), hurd)
 	confflags_main += -D dri1=false -D dri2=false
 	confflags_main += -D glamor=false
+	confflags_main += -D seatd_libseat=false
 else
 	confflags_main += -D dri1=true -D dri2=true
 	confflags_main += -D glamor=true

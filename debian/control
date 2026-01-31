@@ -64,7 +64,7 @@ Build-Depends:
  xkb-data,
  x11-utils <!nocheck>,
  x11-xkb-utils,
- libseat-dev <nosystemd>,
+ libseat-dev [linux-any] <nosystemd>,
  libbsd-dev,
   libdbus-1-dev (>= 1.0) [linux-any] <!nosystemd>,
   libsystemd-dev [linux-any] <!nosystemd>,
