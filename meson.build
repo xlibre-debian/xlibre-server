@@ -3,10 +3,10 @@ project('xserver', 'c',
             'buildtype=debugoptimized',
             'c_std=gnu99',
         ],
-        version: '25.1.3',
+        version: '25.1.4',
         meson_version: '>= 0.61.0',
 )
-release_date = '2026-04-07'
+release_date = '2026-04-21'
 
 add_project_arguments('-DHAVE_DIX_CONFIG_H', language: ['c', 'objc'])
 cc = meson.get_compiler('c')
@@ -421,7 +421,7 @@ foreach t : test_sha1
             sha1_dep = libsha1_dep
         endif
     elif t == 'libnettle'
-        nettle_dep = dependency('nettle', required: false)
+        nettle_dep = dependency('nettle', version: '>= 2.6', required: false)
         if nettle_dep.found()
             sha1_found = true
             sha1_dep = nettle_dep
