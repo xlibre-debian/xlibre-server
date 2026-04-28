@@ -1,3 +1,9 @@
+xlibre-server (2:25.1.5-1) unstable; urgency=medium
+
+  * New upstream version 25.1.5
+
+ -- NexusSfan <nexussfan@duck.com>  Tue, 28 Apr 2026 15:16:47 -0700
+
 xlibre-server (2:25.1.4-1) unstable; urgency=medium
 
   * New upstream version 25.1.4
