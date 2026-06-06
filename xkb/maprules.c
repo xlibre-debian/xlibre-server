@@ -238,7 +238,7 @@ typedef struct {
 static char *
 get_index(char *str, int *ndx)
 {
-    char ndx_buf[NDX_BUFF_SIZE];
+    char ndx_buf[NDX_BUFF_SIZE] = { 0 };
     char *end;
 
     if (*str != '[') {
@@ -481,15 +481,19 @@ CheckLine(InputLine * line,
 static char *
 _Concat(char *str1, const char *str2)
 {
-    int len;
+    size_t len;
+    char *tmp;
 
     if ((!str1) || (!str2))
         return str1;
+
     len = strlen(str1) + strlen(str2) + 1;
-    str1 = realloc(str1, len * sizeof(char));
-    if (str1)
-        strcat(str1, str2);
-    return str1;
+    tmp = realloc(str1, len);
+    if (!tmp)
+        return str1;
+
+    strcat(tmp, str2);
+    return tmp;
 }
 
 static void
@@ -864,7 +868,7 @@ Bool
 XkbRF_GetComponents(XkbRF_RulesPtr rules,
                     XkbRF_VarDefsPtr defs, XkbComponentNamesPtr names)
 {
-    XkbRF_MultiDefsRec mdefs;
+    XkbRF_MultiDefsRec mdefs = { 0 };
 
     MakeMultiDefs(&mdefs, defs);
 

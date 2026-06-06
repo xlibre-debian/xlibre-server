@@ -1727,7 +1727,7 @@ static void drmmmode_prepare_modeset(ScrnInfoPtr scrn)
     ScreenPtr pScreen = scrn->pScreen;
     modesettingPtr ms = modesettingPTR(scrn);
 
-    if (ms->drmmode.pending_modeset)
+    if (!ms->drmmode.present_flipping || ms->drmmode.pending_modeset)
         return;
 
     /*
@@ -1846,6 +1846,10 @@ drmmode_set_cursor_position(xf86CrtcPtr crtc, int x, int y)
     drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
     drmmode_ptr drmmode = drmmode_crtc->drmmode;
 
+    /* Core handles rotation; we only compensate when the glyph box is offset from its click hotspot. */
+    x += drmmode_crtc->cursor_src_x;
+    y += drmmode_crtc->cursor_src_y;
+
     drmModeMoveCursor(drmmode->fd, drmmode_crtc->mode_crtc->crtc_id, x, y);
 }
 
@@ -1937,15 +1941,113 @@ drmmode_cursor_get_pitch(drmmode_crtc_private_ptr drmmode_crtc, int idx)
     return drmmode_crtc->cursor_pitches[idx];
 }
 
+/*
+ * The core stores a single rotated/reflected cursor glyph inside a fixed-size
+ * cursor image buffer. The glyph is written into one corner depending on the
+ * screen rotation and reflections. We compute the bounding box of that placed
+ * glyph to crop just the relevant region.
+ *
+ * This is the placement of the cursor glyph for each screen rotation:
+ *
+ *   +-----------+-----------+
+ *   | Rotate 0  | Rotate 270|
+ *   |(top-left) |(top-right)|
+ *   +-----------+-----------+
+ *   | Rotate 90 | Rotate 180|
+ *   |(bot-left) |(bot-right)|
+ *   +-----------+-----------+
+ *
+ * Reflections flip the corresponding coordinate before rotation:
+ * RR_Reflect_X mirrors across the Y axis (flips X), RR_Reflect_Y mirrors across
+ * the X axis (flips Y). This changes which corner the glyph occupies.
+ */
+static void
+drmmode_transform_box_back(Rotation rotation, int image_width, int image_height,
+                           int box_width, int box_height,
+                           int *x_dst, int *y_dst,
+                           int *dst_width, int *dst_height)
+{
+    int dst_min_x, dst_min_y, dst_max_x, dst_max_y;
+    /* We want to get the (0,0) coordinates of the cursor glyph box. */
+    int src_min_x = 0;
+    int src_max_x = box_width - 1;
+    int src_min_y = 0;
+    int src_max_y = box_height - 1;
+
+    /* Reflect first, then rotate to match the logic in xf86_crtc_rotate_coord_back(). */
+    if (rotation & RR_Reflect_X) {
+        /* (x, y) -> (W - 1 - x, y) */
+        int rx_min = image_width - 1 - src_max_x;
+        int rx_max = image_width - 1 - src_min_x;
+        src_min_x = rx_min;
+        src_max_x = rx_max;
+    }
+    if (rotation & RR_Reflect_Y) {
+        /* (x, y) -> (x, H - 1 - y) */
+        int ry_min = image_height - 1 - src_max_y;
+        int ry_max = image_height - 1 - src_min_y;
+        src_min_y = ry_min;
+        src_max_y = ry_max;
+    }
+
+    switch (rotation & 0xf) {
+    case RR_Rotate_90:
+        /* (x, y) -> (y, W - 1 - x) */
+        dst_min_x = src_min_y;
+        dst_max_x = src_max_y;
+        dst_min_y = image_width - 1 - src_max_x;
+        dst_max_y = image_width - 1 - src_min_x;
+        break;
+    case RR_Rotate_180:
+        /* (x, y) -> (W - 1 - x, H - 1 - y) */
+        dst_min_x = image_width - 1 - src_max_x;
+        dst_max_x = image_width - 1 - src_min_x;
+        dst_min_y = image_height - 1 - src_max_y;
+        dst_max_y = image_height - 1 - src_min_y;
+        break;
+    case RR_Rotate_270:
+        /* (x, y) -> (H - 1 - y, x) */
+        dst_min_x = image_height - 1 - src_max_y;
+        dst_max_x = image_height - 1 - src_min_y;
+        dst_min_y = src_min_x;
+        dst_max_y = src_max_x;
+        break;
+    default:
+        /* RR_Rotate_0 or unknown rotation: identity */
+        /* (x, y) -> (x, y) */
+        dst_min_x = src_min_x;
+        dst_max_x = src_max_x;
+        dst_min_y = src_min_y;
+        dst_max_y = src_max_y;
+        break;
+    }
+
+    /* Clamp to the source image bounds. */
+    dst_min_x = MAX(dst_min_x, 0);
+    dst_min_y = MAX(dst_min_y, 0);
+    dst_max_x = MIN(dst_max_x, image_width - 1);
+    dst_max_y = MIN(dst_max_y, image_height - 1);
+
+    *x_dst = dst_min_x;
+    *y_dst = dst_min_y;
+    *dst_width = dst_max_x - dst_min_x + 1;
+    *dst_height = dst_max_y - dst_min_y + 1;
+}
+
 static void
 drmmode_paint_cursor(struct dumb_bo *cursor_bo, int cursor_pitch, int cursor_width, int cursor_height,
                      const CARD32 * restrict image, int image_width, int image_height,
-                     drmmode_crtc_private_ptr restrict drmmode_crtc, int glyph_width, int glyph_height)
+                     drmmode_crtc_private_ptr restrict drmmode_crtc, int glyph_width, int glyph_height,
+                     int rotation, int src_x, int src_y)
 {
     int width_todo;
     int height_todo;
 
     CARD32 *cursor = cursor_bo->ptr;
+
+    /* Clamp to the source image bounds to avoid pointer UB and OOB reads. */
+    src_x = MAX(MIN(src_x, image_width - 1), 0);
+    src_y = MAX(MIN(src_y, image_height - 1), 0);
 
     /*
      * The image buffer can be smaller than the cursor buffer.
@@ -1957,33 +2059,42 @@ drmmode_paint_cursor(struct dumb_bo *cursor_bo, int cursor_pitch, int cursor_wid
         (drmmode_crtc->cursor_glyph_width == 0 &&
          drmmode_crtc->cursor_glyph_height == 0) ||
 
-        /* Sanity check so we don't read from the image out of bounds */
-        (drmmode_crtc->cursor_glyph_width > image_width ||
-         drmmode_crtc->cursor_glyph_height > image_height) ||
+        /* If cached glyph dimensions exceed the current crop window, force a full clear */
+        (drmmode_crtc->cursor_glyph_width > image_width - src_x ||
+         drmmode_crtc->cursor_glyph_height > image_height - src_y) ||
 
         /* If the pitch changed, the memory layout of the cursor data changed, so the buffer is dirty */
         /* See: https://github.com/X11Libre/xserver/pull/1234 */
-        (drmmode_crtc->old_pitch != cursor_pitch)
+        (drmmode_crtc->old_pitch != cursor_pitch) ||
+
+        /* If rotation changed, the glyph moves to a different region */
+        (drmmode_crtc->cursor_rotation != rotation)
        ) {
         memset(cursor, 0, cursor_bo->size);
 
-        /* Since we already cleared the buffer, no need to clear it again bellow */
+        /* Since we already cleared the buffer, no need to clear it again below */
         drmmode_crtc->cursor_glyph_width = 0;
         drmmode_crtc->cursor_glyph_height = 0;
     }
 
     drmmode_crtc->old_pitch = cursor_pitch;
+    drmmode_crtc->cursor_rotation = rotation;
 
     /* Paint only what we need to */
     width_todo = MAX(drmmode_crtc->cursor_glyph_width, glyph_width);
     height_todo = MAX(drmmode_crtc->cursor_glyph_height, glyph_height);
 
+    /* Basic buffer bounds checking */
+    width_todo = MAX(MIN(width_todo, image_width - src_x), 0);
+    height_todo = MAX(MIN(height_todo, image_height - src_y), 0);
+
     /* remember the size of the current cursor glyph */
     drmmode_crtc->cursor_glyph_width = glyph_width;
     drmmode_crtc->cursor_glyph_height = glyph_height;
 
+    const CARD32 *src = image + src_y * image_width + src_x;
     for (int i = 0; i < height_todo; i++) {
-        memcpy(cursor + i * cursor_pitch, image + i * image_width, width_todo * sizeof(*cursor));    /* cpu_to_le32(image[i]); */
+        memcpy(cursor + i * cursor_pitch, src + i * image_width, width_todo * sizeof(*cursor));    /* cpu_to_le32(image[i]); */
     }
 }
 
@@ -2003,7 +2114,11 @@ drmmode_load_cursor_argb_check(xf86CrtcPtr crtc, CARD32 *image)
     drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
     modesettingPtr ms = modesettingPTR(crtc->scrn);
     CursorPtr cursor = xf86CurrentCursor(crtc->scrn->pScreen);
-    int i;
+    const Rotation rotation = crtc->rotation;
+    int glyph_width = cursor->bits->width;
+    int glyph_height = cursor->bits->height;
+    int crop_width = glyph_width;
+    int crop_height = glyph_height;
 
     if (drmmode_crtc->cursor_up) {
         /* we probe the cursor so late, because we want to make sure that
@@ -2015,30 +2130,54 @@ drmmode_load_cursor_argb_check(xf86CrtcPtr crtc, CARD32 *image)
     drmmode_cursor_rec drmmode_cursor = drmmode_crtc->cursor;
 
     /* Find the most compatiable size. */
-    for (i = 0; i < drmmode_cursor.num_dimensions; i++)
+    int idx;
+    for (idx = 0; idx < drmmode_cursor.num_dimensions; idx++)
     {
-        drmmode_cursor_dim_rec dimensions = drmmode_cursor.dimensions[i];
+        drmmode_cursor_dim_rec dimensions = drmmode_cursor.dimensions[idx];
 
-        if (dimensions.width >= cursor->bits->width &&
-            dimensions.height >= cursor->bits->height) {
+        if (dimensions.width >= glyph_width &&
+            dimensions.height >= glyph_height) {
                 break;
         }
     }
 
-    const int cursor_pitch = drmmode_cursor_get_pitch(drmmode_crtc, i);
+    if (idx >= drmmode_cursor.num_dimensions) {
+        /* No compatible hardware cursor size; fall back to software cursor. */
+        if (!drmmode_crtc->cursor_dim_fallback_warned) {
+            xf86DrvMsg(crtc->scrn->scrnIndex, X_WARNING,
+                       "No compatible hardware cursor size for %dx%d; "
+                       "falling back to software cursor\n",
+                       glyph_width, glyph_height);
+            drmmode_crtc->cursor_dim_fallback_warned = TRUE;
+        }
+        return FALSE;
+    }
+
+    const int cursor_pitch = drmmode_cursor_get_pitch(drmmode_crtc, idx);
 
     /* Get the resolution of the cursor. */
-    int cursor_width  = drmmode_cursor.dimensions[i].width;
-    int cursor_height = drmmode_cursor.dimensions[i].height;
+    int cursor_width  = drmmode_cursor.dimensions[idx].width;
+    int cursor_height = drmmode_cursor.dimensions[idx].height;
 
     /* Get the size of the cursor image buffer */
     int image_width  = ms->cursor_image_width;
     int image_height = ms->cursor_image_height;
+    int src_x = 0;
+    int src_y = 0;
+
+    /* Map the source glyph box (0,0) into the displayed cursor image; src_x/src_y become BO (0,0). */
+    drmmode_transform_box_back(rotation, image_width, image_height,
+                               glyph_width, glyph_height,
+                               &src_x, &src_y, &crop_width, &crop_height);
+
+    drmmode_crtc->cursor_src_x = src_x;
+    drmmode_crtc->cursor_src_y = src_y;
 
     /* cursor should be mapped already */
     drmmode_paint_cursor(drmmode_cursor.bo, cursor_pitch, cursor_width, cursor_height,
                          image, image_width, image_height,
-                         drmmode_crtc, cursor->bits->width, cursor->bits->height);
+                         drmmode_crtc, crop_width, crop_height,
+                         rotation, src_x, src_y);
 
     /* set cursor width and height here for drmmode_show_cursor */
     drmmode_crtc->cursor_width  = cursor_width;
@@ -3697,6 +3836,8 @@ drmmode_connector_check_vrr_capable(uint32_t drm_fd, int connector_id)
 
     props = drmModeObjectGetProperties(drm_fd, connector_id,
                                     DRM_MODE_OBJECT_CONNECTOR);
+    if (!props)
+        return FALSE;
 
     for (i = 0; !found && i < props->count_props; ++i) {
         drmModePropertyPtr drm_prop = drmModeGetProperty(drm_fd, props->props[i]);

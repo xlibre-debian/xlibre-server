@@ -752,7 +752,7 @@ ProcXkbLatchLockState(ClientPtr client)
                 XkbSendStateNotify(tmpd, &sn);
                 changed = XkbIndicatorsToUpdate(tmpd, changed, FALSE);
                 if (changed) {
-					XkbEventCauseRec cause;
+                    XkbEventCauseRec cause = { 0 };
                     XkbSetCauseXkbReq(&cause, X_kbLatchLockState, client);
                     XkbUpdateIndicators(tmpd, changed, TRUE, NULL, &cause);
                 }
@@ -870,9 +870,10 @@ ProcXkbSetControls(ClientPtr client)
     DeviceIntPtr dev, tmpd;
     XkbSrvInfoPtr xkbi;
     XkbControlsPtr ctrl;
-    XkbControlsRec new, old;
-    xkbControlsNotify cn;
-    XkbEventCauseRec cause;
+    XkbControlsRec new = { 0 };
+    XkbControlsRec old = { 0 };
+    xkbControlsNotify cn = { 0 };
+    XkbEventCauseRec cause = { 0 };
     XkbSrvLedInfoPtr sli;
 
     if (!(client->xkbClientFlags & _XkbClientInitialized))
@@ -1631,6 +1632,11 @@ CheckKeyTypes(ClientPtr client,
             *nMapsRtrn = _XkbErrCode4(0x02, req->firstType, req->nTypes, 4);
             return 0;
         }
+        if (nMaps > XkbMaxLegalKeyCode + 1) {
+            *nMapsRtrn = _XkbErrCode4(0x02, req->firstType, req->nTypes,
+                                      XkbMaxLegalKeyCode + 1);
+            return 0;
+        }
     }
     else if (req->present & XkbKeyTypesMask) {
         nMaps = xkb->map->num_types;
@@ -1662,7 +1668,7 @@ CheckKeyTypes(ClientPtr client,
         }
         n = i + req->firstType;
         width = wire->numLevels;
-        if (width < 1) {
+        if (width < 1 || width > XkbMaxShiftLevel) {
             *nMapsRtrn = _XkbErrCode3(0x04, n, width);
             return 0;
         }
@@ -1872,6 +1878,11 @@ CheckKeyActions(ClientPtr client,
     if (req->nKeyActs % 4)
         wire += 4 - (req->nKeyActs % 4);
     *wireRtrn = (CARD8 *) (((XkbAnyAction *) wire) + nActs);
+    if (nActs > 0 &&
+        !_XkbCheckRequestBounds(client, req, wire, *wireRtrn)) {
+        *nActsRtrn = _XkbErrCode2(0x25, nActs);
+        return 0;
+    }
     *nActsRtrn = nActs;
     return 1;
 }
@@ -2665,8 +2676,8 @@ _XkbSetMapChecks(ClientPtr client, DeviceIntPtr dev, xkbSetMapReq * req,
 static int
 _XkbSetMap(ClientPtr client, DeviceIntPtr dev, xkbSetMapReq * req, char *values)
 {
-    XkbEventCauseRec cause;
-    XkbChangesRec change;
+    XkbEventCauseRec cause = { 0 };
+    XkbChangesRec change = { 0 };
     Bool sentNKN;
     XkbSrvInfoPtr xkbi;
     XkbDescPtr xkb;
@@ -3140,7 +3151,7 @@ _XkbSetCompatMap(ClientPtr client, DeviceIntPtr dev,
     if (req->recomputeActions) {
         XkbChangesRec change = { 0 };
         unsigned check;
-        XkbEventCauseRec cause;
+        XkbEventCauseRec cause = { 0 };
 
         XkbSetCauseXkbReq(&cause, X_kbSetCompatMap, client);
         XkbUpdateActions(dev, xkb->min_key_code, XkbNumKeys(xkb), &change,
@@ -3348,7 +3359,7 @@ _XkbSetIndicatorMap(ClientPtr client, DeviceIntPtr dev,
 {
     XkbSrvInfoPtr xkbi;
     XkbSrvLedInfoPtr sli;
-    XkbEventCauseRec cause;
+    XkbEventCauseRec cause = { 0 };
     int i, bit;
 
     xkbi = dev->key->xkbInfo;
@@ -3600,7 +3611,7 @@ _XkbSetNamedIndicator(ClientPtr client, DeviceIntPtr dev,
     int led = 0;
     XkbIndicatorMapPtr map;
     DeviceIntPtr kbd;
-    XkbEventCauseRec cause;
+    XkbEventCauseRec cause = { 0 };
     xkbExtensionDeviceNotify ed = { 0 };
     XkbChangesRec changes = { 0 };
     int rc;
@@ -4243,7 +4254,7 @@ _XkbSetNames(ClientPtr client, DeviceIntPtr dev, xkbSetNamesReq * stuff)
     XkbDescRec *xkb;
     XkbNamesRec *names;
     CARD32 *tmp;
-    xkbNamesNotify nn;
+    xkbNamesNotify nn = { 0 };
 
     tmp = (CARD32 *) &stuff[1];
     xkb = dev->key->xkbInfo->desc;
@@ -5174,6 +5185,8 @@ _CheckSetOverlay(char **wire_inout, xkbSetGeometryReq *req,
     }
     CHK_ATOM_ONLY(olWire->name);
     ol = XkbAddGeomOverlay(section, olWire->name, olWire->nRows);
+    if (!ol)
+        return BadAlloc;
     rWire = (xkbOverlayRowWireDesc *) &olWire[1];
     for (r = 0; r < olWire->nRows; r++) {
         register int k;
@@ -5183,12 +5196,14 @@ _CheckSetOverlay(char **wire_inout, xkbSetGeometryReq *req,
         if (!_XkbCheckRequestBounds(client, req, rWire, rWire + 1))
             return BadLength;
 
-        if (rWire->rowUnder > section->num_rows) {
+        if (rWire->rowUnder >= section->num_rows) {
             client->errorValue = _XkbErrCode4(0x20, r, section->num_rows,
                                               rWire->rowUnder);
             return BadMatch;
         }
         row = XkbAddGeomOverlayRow(ol, rWire->rowUnder, rWire->nKeys);
+        if (!row)
+            return BadAlloc;
         kWire = (xkbOverlayKeyWireDesc *) &rWire[1];
         for (k = 0; k < rWire->nKeys; k++, kWire++) {
             if (!_XkbCheckRequestBounds(client, req, kWire, kWire + 1))
@@ -5378,10 +5393,22 @@ _CheckSetShapes(XkbGeometryPtr geom,
                 ol->num_points = olWire->nPoints;
                 olWire = (xkbOutlineWireDesc *)ptWire;
             }
-            if (shapeWire->primaryNdx != XkbNoShape)
+            if (shapeWire->primaryNdx != XkbNoShape) {
+                if (shapeWire->primaryNdx >= shapeWire->nOutlines) {
+                    client->errorValue = _XkbErrCode3(0x08, shapeWire->primaryNdx,
+                                                      shapeWire->nOutlines);
+                    return BadValue;
+                }
                 shape->primary = &shape->outlines[shapeWire->primaryNdx];
-            if (shapeWire->approxNdx != XkbNoShape)
+            }
+            if (shapeWire->approxNdx != XkbNoShape) {
+                if (shapeWire->approxNdx >= shapeWire->nOutlines) {
+                    client->errorValue = _XkbErrCode3(0x08, shapeWire->approxNdx,
+                                                      shapeWire->nOutlines);
+                    return BadValue;
+                }
                 shape->approx = &shape->outlines[shapeWire->approxNdx];
+            }
             shapeWire = (xkbShapeWireDesc *) olWire;
         }
         wire = (char *) shapeWire;
@@ -5431,12 +5458,12 @@ _CheckSetGeom(XkbGeometryPtr geom, xkbSetGeometryReq * req, ClientPtr client)
         client->errorValue = _XkbErrCode3(0x01, 2, req->nColors);
         return BadValue;
     }
-    if (req->baseColorNdx > req->nColors) {
+    if (req->baseColorNdx >= req->nColors) {
         client->errorValue =
             _XkbErrCode3(0x03, req->nColors, req->baseColorNdx);
         return BadMatch;
     }
-    if (req->labelColorNdx > req->nColors) {
+    if (req->labelColorNdx >= req->nColors) {
         client->errorValue =
             _XkbErrCode3(0x03, req->nColors, req->labelColorNdx);
         return BadMatch;
@@ -5843,7 +5870,7 @@ ProcXkbGetKbdByName(ClientPtr client)
     DeviceIntPtr tmpd;
     DeviceIntPtr master;
     XkbDescPtr xkb, new;
-    XkbEventCauseRec cause;
+    XkbEventCauseRec cause = { 0 };
     unsigned char *str;
     char mapFile[PATH_MAX] = { 0 };
     unsigned len;
@@ -5856,6 +5883,9 @@ ProcXkbGetKbdByName(ClientPtr client)
 
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
+
+    CHK_MASK_LEGAL(0x01, stuff->want, XkbGBN_AllComponentsMask);
+    CHK_MASK_LEGAL(0x02, stuff->need, XkbGBN_AllComponentsMask);
 
     CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, access_mode);
     master = GetMaster(dev, MASTER_KEYBOARD);
@@ -5893,9 +5923,6 @@ ProcXkbGetKbdByName(ClientPtr client)
         free(names.geometry);
         return status;
     }
-
-    CHK_MASK_LEGAL(0x01, stuff->want, XkbGBN_AllComponentsMask);
-    CHK_MASK_LEGAL(0x02, stuff->need, XkbGBN_AllComponentsMask);
 
     if (stuff->load)
         fwant = XkbGBN_AllComponentsMask;
@@ -6678,10 +6705,10 @@ SetDeviceIndicators(char *wire,
 {
     xkbDeviceLedsWireDesc *ledWire;
     int i;
-    XkbEventCauseRec cause;
+    XkbEventCauseRec cause = { 0 };
     unsigned namec, mapc, statec;
-    xkbExtensionDeviceNotify ed;
-    XkbChangesRec changes;
+    xkbExtensionDeviceNotify ed = { 0 };
+    XkbChangesRec changes = { 0 };
     DeviceIntPtr kbd;
 
     memset((char *) &ed, 0, sizeof(xkbExtensionDeviceNotify));
