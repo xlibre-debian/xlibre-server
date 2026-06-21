@@ -44,13 +44,13 @@
 #include "dix/inpututils_priv.h"
 #include "dix/screenint_priv.h"
 #include "include/extinit.h"
+#include "include/misc.h"
 #include "mi/mi_priv.h"
 #include "os/bug_priv.h"
 #include "os/probes_priv.h"
-#include "Xext/panoramiX.h"
-#include "Xext/panoramiXsrv.h"
+#include "Xext/panoramiX/panoramiX.h"
+#include "Xext/panoramiX/panoramiXsrv.h"
 
-#include "misc.h"
 #include "resource.h"
 #include "inputstr.h"
 #include "scrnintstr.h"
@@ -62,7 +62,7 @@
 #include "eventconvert.h"
 #include "windowstr.h"
 #include "xkbsrv.h"
-#include "exglobals.h"
+#include "Xext/xinput/exglobals.h"
 #include "extnsionst.h"
 
 /* Number of motion history events to store. */

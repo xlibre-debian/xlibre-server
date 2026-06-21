@@ -63,6 +63,7 @@ typedef struct _KdCardInfo {
     void *driver;
     struct _KdScreenInfo *screenList;
     int selected;
+    int mynum;
     struct _KdCardInfo *next;
 } KdCardInfo;
 
@@ -103,7 +104,7 @@ typedef struct _KdScreenInfo {
     Bool dumb;
     Bool softCursor;
     int mynum;
-    DDXPointRec origin;
+    xPoint origin;
     KdFrameBuffer fb;
 } KdScreenInfo;
 
@@ -235,12 +236,6 @@ int KdAddPointer(KdPointerInfo * ki);
 int KdAddConfigPointer(const char *pointer);
 void KdRemovePointer(KdPointerInfo * ki);
 
-#define KD_KEY_COUNT 248
-#define KD_MIN_KEYCODE  8
-#define KD_MAX_KEYCODE  255
-#define KD_MAX_WIDTH    4
-#define KD_MAX_LENGTH   (KD_MAX_KEYCODE - KD_MIN_KEYCODE + 1)
-
 typedef struct {
     KeySym modsym;
     int modbit;
@@ -327,9 +322,6 @@ typedef struct _KdMonitorTiming {
     KdSyncPolarity vpol;        /* polarity */
 } KdMonitorTiming;
 
-extern const KdMonitorTiming kdMonitorTimings[];
-extern const int kdNumMonitorTimings;
-
 typedef struct _KdPointerMatrix {
     int matrix[2][3];
 } KdPointerMatrix;
@@ -383,14 +375,14 @@ void KdSetColormap(ScreenPtr pScreen);
 /* kdrive.c */
 extern miPointerScreenFuncRec kdPointerScreenFuncs;
 
-void KdSuspend(void);
+void KdSuspend(int ddxAbort);
 
 void KdInitScreen(KdScreenInfo * screen, int argc, char **argv);
 
 void
  KdDisableScreen(ScreenPtr pScreen);
 
-void KdDisableScreens(void);
+void KdDisableScreens(int ddxAbort);
 
 Bool
  KdEnableScreen(ScreenPtr pScreen);
@@ -436,8 +428,6 @@ void KdOsInit(const KdOsFuncs * pOsFuncs);
 
 void
  KdOsAddInputDrivers(void);
-
-Bool KdAllocatePrivates(ScreenPtr pScreen);
 
 Bool KdCreateScreenResources(ScreenPtr pScreen);
 
@@ -531,9 +521,16 @@ void
 void KdRingBell(KdKeyboardInfo * ki, int volume, int pitch, int duration);
 
 /* kmode.c */
+int
+KdFindRate(KdScreenInfo * screen,
+           Bool (*supported) (KdScreenInfo *, const KdMonitorTiming *));
+
 const KdMonitorTiming *KdFindMode(KdScreenInfo * screen,
                                   Bool (*supported) (KdScreenInfo *,
                                                      const KdMonitorTiming *));
+
+Bool
+KdAddMode(const KdMonitorTiming *new);
 
 Bool
 KdTuneMode(KdScreenInfo * screen,

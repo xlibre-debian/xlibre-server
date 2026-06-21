@@ -40,7 +40,7 @@
  * BadValue for num_masks < 0
  * BadWindow for invalid windows
  * BadDevice for non-existing devices
- * BadImplemenation for devices >= 0xFF
+ * BadImplementation for devices >= 0xFF
  * BadValue if HierarchyChanged bit is set for devices other than
  *          XIAllDevices
  * BadValue for invalid mask bits
@@ -48,18 +48,19 @@
  *
  */
 
+#include <assert.h>
 #include <stdint.h>
 #include <X11/X.h>
 #include <X11/Xproto.h>
 #include <X11/extensions/XI2proto.h>
 
 #include "miext/extinit_priv.h"            /* for XInputExtensionInit */
-#include "Xi/handlers.h"
+#include "Xext/xinput/handlers.h"
 
 #include "inputstr.h"
 #include "windowstr.h"
 #include "scrnintstr.h"
-#include "exglobals.h"
+#include "Xext/xinput/exglobals.h"
 
 #include "protocol-common.h"
 
@@ -116,7 +117,7 @@ request_XISelectEvent(xXISelectEventsReq * req, int error)
        client->req_len (see above). We previously had to swap it here, so
        that ProcXIPassiveGrabDevice() will swap it back. Since that's gone
        now, still swapping itself would break if this function is called
-       again and writing back a errornously swapped value
+       again and writing back a erroneously swapped value
     */
 
     swapl(&req->win);

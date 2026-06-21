@@ -30,6 +30,7 @@
 
 #include <dix-config.h>
 
+#include <assert.h>
 #include "dri.h"
 
 #include <OpenGL/OpenGL.h>
@@ -38,17 +39,19 @@
 #include <OpenGL/CGLContext.h>
 
 #include <GL/glxproto.h>
-#include <windowstr.h>
-#include <resource.h>
 #include <GL/glxint.h>
 #include <GL/glxtokens.h>
+
+#include "Xext/glx/glxscreens.h"
+#include "Xext/glx/glxserver.h"
+#include "Xext/glx/glxutil.h"
+#include "Xext/glx/glxdrawable.h"
+#include "Xext/glx/glxcontext.h"
+#include "Xext/glx/glxext.h"
+
+#include <windowstr.h>
+#include <resource.h>
 #include <scrnintstr.h>
-#include <glxserver.h>
-#include <glxscreens.h>
-#include <glxdrawable.h>
-#include <glxcontext.h>
-#include <glxext.h>
-#include <glxutil.h>
 
 #include "capabilities.h"
 #include "visualConfigs.h"

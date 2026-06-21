@@ -1,4 +1,3 @@
-
 /*
  *                   XFree86 vbe module
  *               Copyright 2000 Egbert Eich
@@ -8,13 +7,10 @@
  * Copyright (c) 2000 by Conectiva S.A. (http://www.conectiva.com)
  * Authors: Paulo César Pereira de Andrade <pcpa@conectiva.com.br>
  */
-
-#ifdef HAVE_XORG_CONFIG_H
 #include <xorg-config.h>
-#endif
 
+#include <assert.h>
 #include <string.h>
-
 #include <X11/extensions/dpmsconst.h>
 
 #include "xf86.h"

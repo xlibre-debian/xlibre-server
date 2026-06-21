@@ -44,8 +44,8 @@
 #include "dix/dix_priv.h"
 #include "dix/request_priv.h"
 #include "dix/screenint_priv.h"
+#include "include/misc.h"
 
-#include "misc.h"
 #include "dixstruct.h"
 #include "extnsionst.h"
 #include "cursorstr.h"
@@ -54,7 +54,7 @@
 #define _APPLEDRI_SERVER_
 #include "appledristr.h"
 #include "swaprep.h"
-#include "dri.h"
+#include "xpr_dri.h"
 #include "dristruct.h"
 #include "xpr.h"
 #include "x-hash.h"

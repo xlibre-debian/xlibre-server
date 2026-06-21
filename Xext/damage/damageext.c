@@ -30,13 +30,14 @@
 #include "dix/request_priv.h"
 #include "dix/screenint_priv.h"
 #include "include/pixmapstr.h"
+#include "include/windowstr.h"
 #include "miext/extinit_priv.h"
 #include "os/client_priv.h"
-#include "Xext/panoramiX.h"
-#include "Xext/panoramiXsrv.h"
-#include "xfixes/xfixes.h"
+#include "Xext/damage/damageext_priv.h"
+#include "Xext/panoramiX/panoramiX.h"
+#include "Xext/panoramiX/panoramiXsrv.h"
+#include "Xext/xfixes/xfixes.h"
 
-#include "damageextint.h"
 #include "damagestr.h"
 #include "protocol-versions.h"
 #include "dixstruct_priv.h"
@@ -201,7 +202,7 @@ DamageExtDestroy(DamagePtr pDamage, void *closure)
 }
 
 void
-DamageExtSetCritical(ClientPtr pClient, Bool critical)
+DamageExtSetCritical(ClientPtr pClient, bool critical)
 {
     DamageClientPtr pDamageClient = GetDamageClient(pClient);
 
@@ -231,12 +232,12 @@ ProcDamageQueryVersion(ClientPtr client)
         else
             reply.minorVersion = SERVER_DAMAGE_MINOR_VERSION;
     }
+
     pDamageClient->major_version = reply.majorVersion;
     pDamageClient->minor_version = reply.minorVersion;
-    if (client->swapped) {
-        swapl(&reply.majorVersion);
-        swapl(&reply.minorVersion);
-    }
+
+    X_REPLY_FIELD_CARD32(majorVersion);
+    X_REPLY_FIELD_CARD32(minorVersion);
 
     return X_SEND_REPLY_SIMPLE(client, reply);
 }
@@ -284,17 +285,16 @@ DamageExtCreate(DrawablePtr pDrawable, DamageReportLevel level,
     return pDamageExt;
 }
 
-static DamageExtPtr
-doDamageCreate(ClientPtr client, int *rc, xDamageCreateReq *stuff)
+static int doDamageCreate(ClientPtr client, DamageExtPtr *ext, xDamageCreateReq *stuff)
 {
     DrawablePtr pDrawable;
     DamageExtPtr pDamageExt;
     DamageReportLevel level;
 
-    *rc = dixLookupDrawable(&pDrawable, stuff->drawable, client, 0,
+    int rc = dixLookupDrawable(&pDrawable, stuff->drawable, client, 0,
                             DixGetAttrAccess | DixReadAccess);
-    if (*rc != Success)
-        return NULL;
+    if (rc != Success)
+        return rc;
 
     switch (stuff->level) {
     case XDamageReportRawRectangles:
@@ -311,16 +311,19 @@ doDamageCreate(ClientPtr client, int *rc, xDamageCreateReq *stuff)
         break;
     default:
         client->errorValue = stuff->level;
-        *rc = BadValue;
-        return NULL;
+        return BadValue;
     }
 
     pDamageExt = DamageExtCreate(pDrawable, level, client, stuff->damage,
                                  stuff->drawable);
     if (!pDamageExt)
-        *rc = BadAlloc;
+        return BadAlloc;
 
-    return pDamageExt;
+    if (ext) {
+        *ext = pDamageExt;
+    }
+
+    return Success;
 }
 
 static int
@@ -330,16 +333,13 @@ ProcDamageCreate(ClientPtr client)
     X_REQUEST_FIELD_CARD32(damage);
     X_REQUEST_FIELD_CARD32(drawable);
 
-    int rc;
-
 #ifdef XINERAMA
     if (damageUseXinerama)
         return PanoramiXDamageCreate(client, stuff);
 #endif
 
     LEGAL_NEW_RESOURCE(stuff->damage, client);
-    doDamageCreate(client, &rc, stuff);
-    return rc;
+    return doDamageCreate(client, NULL, stuff);
 }
 
 static int
@@ -375,17 +375,16 @@ DamageExtSubtractWindowClip(DamageExtPtr pDamageExt)
         return NULL;
 
     XINERAMA_FOR_EACH_SCREEN_FORWARD({
-        ScreenPtr screen;
         if (Success != dixLookupWindow(&win, res->info[walkScreenIdx].id, serverClient,
                                        DixReadAccess))
             goto out;
 
-        screen = win->drawable.pScreen;
+        ScreenPtr pScreen = win->drawable.pScreen;
 
-        RegionTranslate(ret, -screen->x, -screen->y);
+        RegionTranslate(ret, -pScreen->x, -pScreen->y);
         if (!RegionUnion(ret, ret, &win->borderClip))
             goto out;
-        RegionTranslate(ret, screen->x, screen->y);
+        RegionTranslate(ret, pScreen->x, pScreen->y);
     });
 
     return ret;
@@ -480,10 +479,9 @@ ProcDamageAdd(ClientPtr client)
 
     DrawablePtr pDrawable;
     RegionPtr pRegion;
-    int rc;
 
     VERIFY_REGION(pRegion, stuff->region, client, DixWriteAccess);
-    rc = dixLookupDrawable(&pDrawable, stuff->drawable, client, 0,
+    int rc = dixLookupDrawable(&pDrawable, stuff->drawable, client, 0,
                            DixWriteAccess);
     if (rc != Success)
         return rc;
@@ -590,10 +588,9 @@ PanoramiXDamageCreate(ClientPtr client, xDamageCreateReq *stuff)
 {
     PanoramiXDamageRes *damage;
     PanoramiXRes *draw;
-    int rc;
 
     LEGAL_NEW_RESOURCE(stuff->damage, client);
-    rc = dixLookupResourceByClass((void **)&draw, stuff->drawable, XRC_DRAWABLE,
+    int rc = dixLookupResourceByClass((void **)&draw, stuff->drawable, XRC_DRAWABLE,
                                   client, DixGetAttrAccess | DixReadAccess);
     if (rc != Success)
         return rc;
@@ -604,7 +601,7 @@ PanoramiXDamageCreate(ClientPtr client, xDamageCreateReq *stuff)
     if (!AddResource(stuff->damage, XRT_DAMAGE, damage))
         return BadAlloc;
 
-    damage->ext = doDamageCreate(client, &rc, stuff);
+    rc = doDamageCreate(client, &(damage->ext), stuff);
     if (rc == Success && draw->type == XRT_WINDOW) {
         XINERAMA_FOR_EACH_SCREEN_FORWARD({
             DrawablePtr pDrawable;

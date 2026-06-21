@@ -5,23 +5,20 @@
  * the I2C driver from the Linux kernel.
  *      (c) 1998 Gerd Knorr <kraxel@cs.tu-berlin.de>
  */
-
-#ifdef HAVE_XORG_CONFIG_H
 #include <xorg-config.h>
-#endif
 
 #include <sys/time.h>
 #include <string.h>
-
-#include "os/osdep.h"
-
-#include "misc.h"
-#include "xf86.h"
-#include "xf86_OSproc.h"
-
 #include <X11/X.h>
 #include <X11/Xos.h>
 #include <X11/Xproto.h>
+
+#include "include/misc.h"
+#include "os/osdep.h"
+
+#include "xf86.h"
+#include "xf86_OSproc.h"
+
 #include "scrnintstr.h"
 #include "regionstr.h"
 #include "windowstr.h"
@@ -71,7 +68,7 @@ I2CUDelay(I2CBusPtr b, int usec)
  * ================================================================
  *
  * It is assumed that there is just one master on the I2C bus, therefore
- * there is no explicit test for conflits.
+ * there is no explicit test for conflicts.
  */
 
 #define RISEFALLTIME 2          /* usec, actually 300 to 1000 ns according to the i2c specs */

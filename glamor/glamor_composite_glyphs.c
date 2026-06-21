@@ -24,15 +24,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "include/mipict.h"
 #include "os/bug_priv.h"
 
 #include "Xprintf.h"
 #include "glamor_priv.h"
 #include "glamor_transform.h"
 #include "glamor_transfer.h"
-#include "glyphstr_priv.h"
-
-#include <mipict.h>
+#include "Xext/render/glyphstr_priv.h"
 
 #define DEFAULT_ATLAS_DIM       1024
 

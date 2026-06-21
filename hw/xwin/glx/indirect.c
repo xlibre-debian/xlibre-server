@@ -73,14 +73,13 @@
   is used to make no context current
 
 */
-
-#ifdef HAVE_XWIN_CONFIG_H
 #include <xwin-config.h>
-#endif
 
 #include "glwindows.h"
-#include <glx/glxserver.h>
-#include <glx/glxutil.h>
+
+#include "Xext/glx/glxserver.h"
+#include "Xext/glx/glxutil.h"
+
 #include <GL/glxtokens.h>
 
 #include <winpriv.h>
@@ -183,7 +182,8 @@ glxWinErrorMessage(void)
         (errorbuffer[strlen(errorbuffer) - 1] == '\r'))
         errorbuffer[strlen(errorbuffer) - 1] = 0;
 
-    sprintf(errorbuffer + strlen(errorbuffer), " (%08x)", last_error);
+    size_t len = strlen(errorbuffer);
+    snprintf(errorbuffer + len, sizeof(errorbuffer) - len, " (%08x)", last_error);
 
     return errorbuffer;
 }
@@ -373,7 +373,7 @@ static __GLXdrawable *glxWinCreateDrawable(ClientPtr client,
                                            int type,
                                            XID glxDrawId, __GLXconfig * conf);
 
-static void glxWinCopyWindow(WindowPtr pWindow, DDXPointRec ptOldOrg,
+static void glxWinCopyWindow(WindowPtr pWindow, xPoint ptOldOrg,
                              RegionPtr prgnSrc);
 static Bool glxWinSetPixelFormat(HDC hdc, int bppOverride, int drawableTypeOverride,
                                  __GLXscreen *screen, __GLXconfig *config);
@@ -725,7 +725,7 @@ glxWinScreenProbe(ScreenPtr pScreen)
  */
 
 static void
-glxWinCopyWindow(WindowPtr pWindow, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
+glxWinCopyWindow(WindowPtr pWindow, xPoint ptOldOrg, RegionPtr prgnSrc)
 {
     __GLXWinDrawable *pGlxDraw;
     ScreenPtr pScreen = pWindow->drawable.pScreen;
@@ -1128,7 +1128,7 @@ glxWinSetPixelFormat(HDC hdc, int bppOverride, int drawableTypeOverride,
        and see if we can find a suitable one...
      */
     ErrorF
-        ("glxWinSetPixelFormat: having second thoughts: cColorbits %d, bppOveride %d; config->drawableType %d, drawableTypeOverride %d\n",
+        ("glxWinSetPixelFormat: having second thoughts: cColorbits %d, bppOverride %d; config->drawableType %d, drawableTypeOverride %d\n",
          (config->redBits + config->greenBits + config->blueBits), bppOverride,
          config->drawableType, drawableTypeOverride);
 
@@ -2108,7 +2108,7 @@ glxWinCreateConfigsExt(HDC hdc, glxWinScreen * screen, PixelFormatRejectStats * 
 
     /* fill in configs */
     for (i = 0; i < numConfigs; i++) {
-        int values[num_attrs];
+        int values[ARRAY_SIZE(attrs)];
         GLXWinConfig temp;
         GLXWinConfig *c = &temp;
         GLXWinConfig *work;

@@ -84,17 +84,17 @@ SOFTWARE.
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "os/Xtrans.h"
+#include <errno.h>
+#include <sys/types.h>
 #include <X11/Xauth.h>
 #include <X11/X.h>
 #include <X11/Xproto.h>
-#include "misc.h"
-#include <errno.h>
-#include <sys/types.h>
 
 #include "dix/server_priv.h"
+#include "include/misc.h"
 #include "os/io_priv.h"
 #include "os/xhostname.h"
+#include "os/Xtrans.h"
 
 #ifndef WIN32
 #include <sys/socket.h>
@@ -589,7 +589,9 @@ DefineSelf(int fd)
         ErrorF("Getting interface count: %s\n", strerror(errno));
     if (len < (ifn.lifn_count * sizeof(struct lifreq))) {
         len = ifn.lifn_count * sizeof(struct lifreq);
-        bufptr = calloc(1, len);
+        if (!(bufptr = calloc(1, len))) {
+            FatalError("DefineSelf: failed to allocate memory\n");
+        }
     }
 #endif
 
@@ -1066,6 +1068,9 @@ ComputeLocalClient(ClientPtr client)
      */
     if (cmdname) {
         char *cmd = strdup(cmdname);
+        if (!cmd)
+            return FALSE;
+
         Bool ret;
 
         /* Cut off any colon and whatever comes after it, see

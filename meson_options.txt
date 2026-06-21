@@ -1,5 +1,7 @@
 option('xorg', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
        description: 'Enable Xorg X Server')
+option('xorg-sdk', type: 'boolean', value: false,
+       description: 'Enable Xorg X Server SDK (enabled with xorg)')
 option('xephyr', type: 'boolean', value: false,
        description: 'Enable Xephyr nested X server')
 option('xfbdev', type: 'boolean', value: false,
@@ -32,6 +34,9 @@ option('fontrootdir', type: 'string',
         description: 'Root directory for legacy fonts. Default: from font-utils.pc or $datadir/fonts/X11')
 option('serverconfigdir', type: 'string',
         description: 'Miscellaneous server configuration files path. Default: $libdir/xorg')
+
+option('gbm', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
+       description: 'Enable libgbm support (default yes if available)')
 
 option('glx_dri', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
         description: 'Build the dri-based glx backends. Default: true')
@@ -127,11 +132,12 @@ option('dri3', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
 option('drm', type: 'boolean', value: true,
         description: 'Build Xorg with libdrm support')
 
+# Xquartz (MacOS) specific options
 option('apple-applications-dir', type: 'string', value: '/Applications/Utilities',
         description: 'Applications directory')
 option('apple-application-name', type: 'string', value: 'X11',
         description: 'Application name')
-option('bundle-id-prefix', type: 'string', value: 'org.x',
+option('bundle-id-prefix', type: 'string', value: 'net.xlibre',
         description: 'RDNS prefix for bundle identifier')
 option('bundle-version', type: 'string', value: 'auto',
         description: 'The CFBundleVersion for the application bundle')

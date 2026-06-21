@@ -64,18 +64,16 @@ SOFTWARE.
 
 #include "dix/dix_priv.h"
 #include "dix/screensaver_priv.h"
+#include "include/misc.h"
 #include "os/busfault.h"
 #include "os/client_priv.h"
 #include "os/ossock.h"
 #include "os/screensaver.h"
+#include "Xext/dpms/dpms_priv.h"
 
-#include "misc.h"
 #include "osdep.h"
 #include "dixstruct_priv.h"
 #include "globals.h"
-#ifdef DPMSExtension
-#include "dpmsproc.h"
-#endif
 
 #ifdef WIN32
 /* Error codes from windows sockets differ from fileio error codes  */

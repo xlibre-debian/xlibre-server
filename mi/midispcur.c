@@ -31,14 +31,14 @@ in this Software without prior written authorization from The Open Group.
 
 #include <dix-config.h>
 
-#include   <X11/X.h>
+#include <X11/X.h>
 
-#include   "dix/dix_priv.h"
-#include   "dix/gc_priv.h"
-#include   "dix/screen_hooks_priv.h"
-#include   "dix/screenint_priv.h"
+#include "dix/dix_priv.h"
+#include "dix/gc_priv.h"
+#include "dix/screen_hooks_priv.h"
+#include "dix/screenint_priv.h"
+#include "include/misc.h"
 
-#include   "misc.h"
 #include   "input.h"
 #include   "cursorstr.h"
 #include   "windowstr.h"
@@ -146,8 +146,7 @@ static void miDCCloseScreen(CallbackListPtr *pcbl, ScreenPtr pScreen, void *unus
     dixSetPrivate(&pScreen->devPrivates, miDCScreenKey, NULL); /* clear it, just for sure */
 }
 
-Bool
-miDCRealizeCursor(ScreenPtr pScreen, CursorPtr pCursor)
+bool miDCRealizeCursor(ScreenPtr pScreen, CursorPtr pCursor)
 {
     return TRUE;
 }
@@ -271,8 +270,7 @@ miDCRealize(ScreenPtr pScreen, CursorPtr pCursor)
     return TRUE;
 }
 
-Bool
-miDCUnrealizeCursor(ScreenPtr pScreen, CursorPtr pCursor)
+bool miDCUnrealizeCursor(ScreenPtr pScreen, CursorPtr pCursor)
 {
     miDCScreenPtr pScreenPriv = dixLookupPrivate(&pScreen->devPrivates, miDCScreenKey);
 
@@ -345,9 +343,8 @@ miDCMakeGC(WindowPtr pWin)
     return pGC;
 }
 
-Bool
-miDCPutUpCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor,
-                int x, int y, unsigned long source, unsigned long mask)
+bool miDCPutUpCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor,
+                     int x, int y, unsigned long source, unsigned long mask)
 {
     miDCScreenPtr pScreenPriv = dixLookupPrivate(&pScreen->devPrivates, miDCScreenKey);
     miDCBufferPtr pBuffer;
@@ -379,9 +376,8 @@ miDCPutUpCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor,
     return TRUE;
 }
 
-Bool
-miDCSaveUnderCursor(DeviceIntPtr pDev, ScreenPtr pScreen,
-                    int x, int y, int w, int h)
+bool miDCSaveUnderCursor(DeviceIntPtr pDev, ScreenPtr pScreen,
+                         int x, int y, int w, int h)
 {
     miDCBufferPtr pBuffer;
     PixmapPtr pSave;
@@ -408,9 +404,8 @@ miDCSaveUnderCursor(DeviceIntPtr pDev, ScreenPtr pScreen,
     return TRUE;
 }
 
-Bool
-miDCRestoreUnderCursor(DeviceIntPtr pDev, ScreenPtr pScreen,
-                       int x, int y, int w, int h)
+bool miDCRestoreUnderCursor(DeviceIntPtr pDev, ScreenPtr pScreen,
+                            int x, int y, int w, int h)
 {
     miDCBufferPtr pBuffer;
     PixmapPtr pSave;
@@ -432,8 +427,7 @@ miDCRestoreUnderCursor(DeviceIntPtr pDev, ScreenPtr pScreen,
     return TRUE;
 }
 
-Bool
-miDCDeviceInitialize(DeviceIntPtr pDev, ScreenPtr pScreen)
+bool miDCDeviceInitialize(DeviceIntPtr pDev, ScreenPtr pScreen)
 {
     miDCBufferPtr pBuffer;
 

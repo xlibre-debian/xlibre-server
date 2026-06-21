@@ -45,10 +45,14 @@
  * the sale, use or other dealings in this Software without prior written
  * authorization from the copyright holder(s) and author(s).
  */
-
-#ifdef HAVE_XORG_CONFIG_H
 #include <xorg-config.h>
-#endif
+
+#include <assert.h>
+#include <dirent.h>
+#include <limits.h>
+#include <regex.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "dix.h"
 #include "os.h"
@@ -57,11 +61,6 @@
 #include "loader.h"
 #include "xf86Module_priv.h"
 
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <regex.h>
-#include <dirent.h>
-#include <limits.h>
 
 typedef struct _pattern {
     const char *pattern;

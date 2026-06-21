@@ -1,10 +1,8 @@
-module_abi_tag = 'xlibre-25'
 module_abi_dir = join_paths(module_dir, module_abi_tag)
 
 xorg_inc = include_directories(
     'common',
     'ddc',
-    'dri2',
     'i2c',
     'int10',
     'loader',
@@ -32,9 +30,6 @@ subdir('compat')
 subdir('ddc')
 if build_dri1
     subdir('dri')
-endif
-if build_dri2
-    subdir('dri2')
 endif
 subdir('i2c')
 subdir('loader')
@@ -75,9 +70,6 @@ xorg_link = [
 ]
 if build_dri1
     xorg_link += xorg_dri
-endif
-if build_dri2
-    xorg_link += xorg_dri2
 endif
 
 if host_machine.system() == 'cygwin' or host_machine.system() == 'windows'
@@ -125,7 +117,7 @@ xserver_exec = executable(
 subdir('dixmods')
 subdir('exa')
 subdir('fbdevhw')
-if gbm_dep.found()
+if build_glamor and build_gbm
     subdir('glamor_egl')
 endif
 if int10 != 'false'

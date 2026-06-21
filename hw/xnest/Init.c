@@ -21,15 +21,16 @@ is" without express or implied warranty.
 #include <X11/fonts/libxfont2.h>
 
 #include "dix/screenint_priv.h"
+#include "include/misc.h"
 #include "mi/mi_priv.h"
 #include "miext/extinit_priv.h"
 #include "os/ddx_priv.h"
 #include "os/log_priv.h"
 #include "os/osdep.h"
+#include "Xext/dpms/dpms_priv.h"
 
 #include "screenint.h"
 #include "input.h"
-#include "misc.h"
 #include "scrnintstr.h"
 #include "windowstr.h"
 #include "servermd.h"
@@ -47,9 +48,6 @@ is" without express or implied warranty.
 #include "Drawable.h"
 #include "XNGC.h"
 #include "XNFont.h"
-#ifdef DPMSExtension
-#include "dpmsproc.h"
-#endif
 
 Bool xnestDoFullGeneration = TRUE;
 
@@ -109,7 +107,7 @@ InitOutput(int argc, char *argv[])
 
     xnestNumScreens = screenInfo.numScreens;
 
-    xnestDoFullGeneration = xnestFullGeneration;
+    xnestDoFullGeneration = FALSE;
 }
 
 static void

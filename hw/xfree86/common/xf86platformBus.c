@@ -25,12 +25,10 @@
 /*
  * This file contains the interfaces to the bus-specific code
  */
-
-#ifdef HAVE_XORG_CONFIG_H
 #include <xorg-config.h>
-#endif
 
 #ifdef XSERVER_PLATFORM_BUS
+#include <assert.h>
 #include <errno.h>
 
 #include <pciaccess.h>
@@ -39,12 +37,13 @@
 
 #include "config/hotplug_priv.h"
 #include "dix/screenint_priv.h"
-#include "randr/randrstr_priv.h"
 #include "os/osdep.h"
+#include "Xext/randr/randrstr_priv.h"
 
 #include "os.h"
 #include "../os-support/linux/systemd-logind.h"
 
+#include "xf86_pci_priv.h"
 #include "loaderProcs.h"
 #include "xf86_priv.h"
 #include "xf86_os_support.h"
@@ -606,6 +605,12 @@ xf86platformProbeDev(DriverPtr drvp)
                 if (ServerIsNotSeat0()) {
                     break;
                 } else {
+                    /* Accept the device if the driver is corebootdrm */
+                    if (strcmp(xf86_platform_devices[j].attribs->driver, "corebootdrm") == 0)
+                        break;
+                    /* Accept the device if the driver is efidrm */
+                    if (strcmp(xf86_platform_devices[j].attribs->driver, "efidrm") == 0)
+                        break;
                     /* Accept the device if the driver is hyperv_drm */
                     if (strcmp(xf86_platform_devices[j].attribs->driver, "hyperv_drm") == 0)
                         break;
@@ -614,6 +619,9 @@ xf86platformProbeDev(DriverPtr drvp)
                         break;
                     /* Accept the device if the driver is simpledrm */
                     if (strcmp(xf86_platform_devices[j].attribs->driver, "simpledrm") == 0)
+                        break;
+                    /* Accept the device if the driver is vesadrm */
+                    if (strcmp(xf86_platform_devices[j].attribs->driver, "vesadrm") == 0)
                         break;
                 }
 
@@ -641,20 +649,18 @@ xf86platformAddGPUDevices(DriverPtr drvp)
     GDevPtr *devList;
     int j;
 
-    if (!drvp->platformProbe)
+    if (!drvp->platformProbe || !xf86Info.autoAddGPU)
         return FALSE;
 
     xf86MatchDevice(drvp->driverName, &devList);
 
     /* if autoaddgpu devices is enabled then go find any unclaimed platform
      * devices and add them as GPU screens */
-    if (xf86Info.autoAddGPU) {
-        for (j = 0; j < xf86_num_platform_devices; j++) {
-            if (probeSingleDevice(&xf86_platform_devices[j], drvp,
-                                  devList ?  devList[0] : NULL,
-                                  PLATFORM_PROBE_GPU_SCREEN))
-                foundScreen = TRUE;
-        }
+    for (j = 0; j < xf86_num_platform_devices; j++) {
+        if (probeSingleDevice(&xf86_platform_devices[j], drvp,
+                              devList ?  devList[0] : NULL,
+                              PLATFORM_PROBE_GPU_SCREEN))
+            foundScreen = TRUE;
     }
 
     free(devList);

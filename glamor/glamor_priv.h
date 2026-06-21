@@ -40,11 +40,10 @@
 #endif
 
 #include <epoxy/gl.h>
-#ifdef GLAMOR_HAS_GBM
+
 #define MESA_EGL_NO_X11_HEADERS
 #define EGL_NO_X11
 #include <epoxy/egl.h>
-#endif
 
 #define GLAMOR_DEFAULT_PRECISION  \
     "#ifdef GL_ES\n"              \
@@ -350,6 +349,9 @@ typedef struct glamor_screen_private {
     struct glamor_context ctx;
 } glamor_screen_private;
 
+/* Allow overriding the default glamor screen init proc */
+extern void (*glamor_egl_screen_init2)(ScreenPtr screen, struct glamor_context *glamor_ctx);
+
 typedef enum glamor_access {
     GLAMOR_ACCESS_RO,
     GLAMOR_ACCESS_RW,
@@ -393,10 +395,11 @@ typedef struct glamor_pixmap_private {
     GLuint pbo;
     RegionRec prepare_region;
     Bool prepared;
-#ifdef GLAMOR_HAS_GBM
+
+    /* For DRI3 */
     EGLImageKHR image;
     Bool used_modifiers;
-#endif
+
     /** block width of this large pixmap. */
     int block_w;
     /** block height of this large pixmap. */
@@ -1013,7 +1016,13 @@ void glamor_egl_screen_init(ScreenPtr screen,
 
 Bool glamor_change_window_attributes(WindowPtr pWin, unsigned long mask);
 
-void glamor_copy_window(WindowPtr window, DDXPointRec old_origin, RegionPtr src_region);
+void glamor_copy_window(WindowPtr window, xPoint old_origin, RegionPtr src_region);
+
+/*
+ * unref a glamor pixmap (specialized form of fbPixmap) and free
+ * if refcnt already had reached 1
+ */
+Bool glamor_destroy_pixmap(PixmapPtr pixmap);
 
 #include "glamor_utils.h"
 

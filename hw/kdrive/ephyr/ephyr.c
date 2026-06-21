@@ -25,6 +25,7 @@
 
 #include <kdrive-config.h>
 
+#include <assert.h>
 #include <xcb/xcb_keysyms.h>
 #include <X11/keysym.h>
 
@@ -250,7 +251,7 @@ ephyrMapFramebuffer(KdScreenInfo * screen)
         /* Rotated/Reflected so we need to use shadow fb */
         scrpriv->shadow = TRUE;
 
-        EPHYR_LOG("allocing shadow");
+        EPHYR_LOG("allocating shadow");
 
         KdShadowFbAlloc(screen,
                         scrpriv->randr & (RR_Rotate_90 | RR_Rotate_270));
@@ -418,6 +419,9 @@ ephyrRandRGetInfo(ScreenPtr pScreen, Rotation * rotations)
     Rotation randr;
     int n = 0;
 
+    /* Dummy refresh rate so that new proton (>= 8) works */
+    int rate = 60;
+
     struct {
         int width, height;
     } sizes[] = {
@@ -446,12 +450,13 @@ ephyrRandRGetInfo(ScreenPtr pScreen, Rotation * rotations)
     if (!hostx_want_preexisting_window(screen)
         && !hostx_want_fullscreen()) {  /* only if no -parent switch */
         while (sizes[n].width != 0 && sizes[n].height != 0) {
-            RRRegisterSize(pScreen,
-                           sizes[n].width,
-                           sizes[n].height,
-                           (sizes[n].width * screen->width_mm) / screen->width,
-                           (sizes[n].height * screen->height_mm) /
-                           screen->height);
+            pSize = RRRegisterSize(pScreen,
+                                   sizes[n].width,
+                                   sizes[n].height,
+                                   (sizes[n].width * screen->width_mm) / screen->width,
+                                   (sizes[n].height * screen->height_mm) /
+                                   screen->height);
+            RRRegisterRate(pScreen, pSize, rate);
             n++;
         }
     }
@@ -462,7 +467,8 @@ ephyrRandRGetInfo(ScreenPtr pScreen, Rotation * rotations)
 
     randr = KdSubRotation(scrpriv->randr, screen->randr);
 
-    RRSetCurrentConfig(pScreen, randr, 0, pSize);
+    RRRegisterRate(pScreen, pSize, rate);
+    RRSetCurrentConfig(pScreen, randr, rate, pSize);
 
     return TRUE;
 }
@@ -782,9 +788,7 @@ ephyrInitScreen(ScreenPtr pScreen)
 
 #ifdef XV
     if (!ephyrNoXV) {
-        if (ephyr_glamor)
-            ephyr_glamor_xv_init(pScreen);
-        else if (!ephyrInitVideo(pScreen)) {
+        if (!ephyr_glamor && !ephyrInitVideo(pScreen)) {
             EPHYR_LOG_ERROR("failed to initialize xvideo\n");
         }
         else {

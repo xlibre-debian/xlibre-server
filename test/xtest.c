@@ -24,6 +24,7 @@
 /* Test relies on assert() */
 #undef NDEBUG
 
+#include <assert.h>
 #include <dix-config.h>
 
 #include <stdint.h>
@@ -41,7 +42,7 @@
 #include "exevents.h"
 #include "xkbsrv.h"
 #include "xserver-properties.h"
-#include "syncsrv.h"
+#include "Xext/sync/syncsrv.h"
 #include "tests-common.h"
 
 /**

@@ -27,10 +27,10 @@
  *
  * Authors:	Harold L Hunt II
  */
-
-#ifdef HAVE_XWIN_CONFIG_H
 #include <xwin-config.h>
-#endif
+
+#include <assert.h>
+
 #include "win.h"
 
 #include "dix/colormap_priv.h"
@@ -158,7 +158,7 @@ winQueryRGBBitsAndMasks(ScreenPtr pScreen)
     /* Color masks for 8 bpp are standardized */
     if (GetDeviceCaps(pScreenPriv->hdcScreen, RASTERCAPS) & RC_PALETTE) {
         /*
-         * RGB BPP for 8 bit palletes is always 8
+         * RGB BPP for 8 bit palettes is always 8
          * and the color masks are always 0.
          */
         pScreenPriv->dwBitsPerRGB = 8;
@@ -923,7 +923,7 @@ winBltExposedWindowRegionShadowGDI(ScreenPtr pScreen, WindowPtr pWin)
 }
 
 /*
- * Do any engine-specific appliation-activation processing
+ * Do any engine-specific application-activation processing
  */
 
 static Bool

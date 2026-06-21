@@ -42,15 +42,22 @@
 
 #include <dix-config.h>
 
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <errno.h>
+#include <time.h>
 #include <X11/X.h>
 #include <X11/Xmd.h>
 #include <X11/Xproto.h>
 
 #include "dix/inpututils_priv.h"
+#include "include/misc.h"
 #include "mi/mi_priv.h"
 #include "os/client_priv.h"
+#include "Xext/xinput/exglobals.h"
 
-#include "misc.h"
 #include "windowstr.h"
 #include "pixmapstr.h"
 #include "inputstr.h"
@@ -58,20 +65,12 @@
 #include "scrnintstr.h"
 #include "mipointer.h"
 #include "os.h"
-#include "exglobals.h"
 
 #include "darwin.h"
 #include "quartz.h"
 #include "quartzKeyboard.h"
 #include "quartzRandR.h"
 #include "darwinEvents.h"
-
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <errno.h>
-#include <time.h>
 
 #include <IOKit/hidsystem/IOLLEvent.h>
 
@@ -200,7 +199,7 @@ DarwinUpdateModifiers(int pressed,                    // KeyPress or KeyRelease
         }
 }
 
-/* Generic handler for Xquartz-specifc events.  When possible, these should
+/* Generic handler for Xquartz-specific events.  When possible, these should
    be moved into their own individual functions and set as handlers using
    mieqSetHandler. */
 
@@ -356,8 +355,7 @@ DarwinProcessFDAdditionQueue_thread(void *args)
     return NULL;
 }
 
-Bool
-DarwinEQInit(void)
+void DarwinEQInit(void)
 {
     int *p;
 
@@ -377,8 +375,6 @@ DarwinEQInit(void)
         fd_add_tid = create_thread(DarwinProcessFDAdditionQueue_thread, NULL);
 
     signal_mieq_init();
-
-    return TRUE;
 }
 
 void

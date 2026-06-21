@@ -36,19 +36,19 @@
 
 #include <dix-config.h>
 
+#include <assert.h>
 #include <sys/time.h>
 #include <unistd.h>
-
-#include <X11/X.h>
-#include <X11/Xproto.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <X11/X.h>
+#include <X11/Xproto.h>
 
+#include "include/misc.h"
 #include "miext/extinit_priv.h"
 
-#include "misc.h"
 #include "dixstruct.h"
 #include "extnsionst.h"
 #include "cursorstr.h"
@@ -58,7 +58,7 @@
 #define _APPLEDRI_SERVER_
 #include "appledristr.h"
 #include "swaprep.h"
-#include "dri.h"
+#include "xpr_dri.h"
 #include "dristruct.h"
 #include "mi.h"
 #include "mipointer.h"
@@ -565,7 +565,7 @@ DRIDrawablePrivDelete(void *pResource, XID id)
 }
 
 void
-DRICopyWindow(WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
+DRICopyWindow(WindowPtr pWin, xPoint ptOldOrg, RegionPtr prgnSrc)
 {
     ScreenPtr pScreen = pWin->drawable.pScreen;
     DRIScreenPrivPtr pDRIPriv = DRI_SCREEN_PRIV(pScreen);

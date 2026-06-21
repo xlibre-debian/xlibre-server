@@ -53,6 +53,7 @@ SOFTWARE.
 
 #include <dix-config.h>
 
+#include <assert.h>
 #undef DEBUG_COMMUNICATION
 
 #include "dixstruct_priv.h"
@@ -73,6 +74,7 @@ SOFTWARE.
 #include <X11/Xproto.h>
 
 #include "dix/dix_priv.h"
+#include "include/misc.h"
 #include "os/bug_priv.h"
 #include "os/client_priv.h"
 #include "os/io_priv.h"
@@ -82,7 +84,6 @@ SOFTWARE.
 #include "os.h"
 #include "opaque.h"
 #include "dixstruct.h"
-#include "misc.h"
 
 CallbackListPtr ReplyCallback = NULL;
 CallbackListPtr FlushCallback;

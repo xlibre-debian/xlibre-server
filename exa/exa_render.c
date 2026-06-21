@@ -21,14 +21,14 @@
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-
 #include <dix-config.h>
 
+#include <assert.h>
 #include <stdlib.h>
 
-#include "exa_priv.h"
+#include "include/mipict.h"
 
-#include "mipict.h"
+#include "exa_priv.h"
 
 #if DEBUG_TRACE_FALL
 static void
@@ -948,7 +948,7 @@ exaComposite(CARD8 op,
 
             if (pSrc->repeat && pSrc->repeatType == RepeatNormal &&
                 pSrc->pDrawable->type == DRAWABLE_PIXMAP) {
-                DDXPointRec patOrg;
+                xPoint patOrg;
 
                 /* Let's see if the driver can do the repeat in one go */
                 if (pExaScr->info->PrepareComposite && !pSrc->alphaMap &&

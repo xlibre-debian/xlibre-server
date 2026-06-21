@@ -30,6 +30,7 @@
 
 #include <dix-config.h>
 
+#include <assert.h>
 #include <sys/stat.h>
 #include <X11/X.h>
 #include <X11/Xproto.h>
@@ -40,7 +41,7 @@
 #include "os/ddx_priv.h"
 #include "os/log_priv.h"
 #include "os/osdep.h"
-#include "xkb/xkbsrv_priv.h"
+#include "Xext/xkeyboard/xkbsrv_priv.h"
 
 #include "os.h"
 #include "servermd.h"
@@ -74,12 +75,10 @@
 #define NO_CFPLUGIN
 #include <IOKit/hidsystem/IOHIDLib.h>
 
+#include "include/shmint.h"
+
 #include "input_priv.h"
 #include "screenint_priv.h"
-
-#ifdef CONFIG_MITSHM
-#include "shmint.h"
-#endif /* CONFIG_MITSHM */
 
 #include "darwin.h"
 #include "darwinEvents.h"
@@ -674,7 +673,6 @@ OsVendorFatalError(const char *f, va_list args)
 void
 OsVendorInit(void)
 {
-    if (serverGeneration == 1) {
         char *lf;
         char *home = getenv("HOME");
         assert(home);
@@ -693,7 +691,6 @@ OsVendorInit(void)
         free(lf);
 
         DarwinPrintBanner();
-    }
 }
 
 /*

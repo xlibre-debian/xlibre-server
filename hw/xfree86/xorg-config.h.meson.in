@@ -42,17 +42,14 @@
 /* Path to installed libraries. */
 #mesondefine DEFAULT_LIBRARY_PATH
 
-/* Default log location */
-#mesondefine DEFAULT_LOGDIR
-
 /* Default logfile prefix */
 #mesondefine DEFAULT_LOGPREFIX
 
-/* Default XDG_DATA dir under HOME */
-#mesondefine DEFAULT_XDG_DATA_HOME
+/* Default XDG_STATE dir under HOME */
+#mesondefine DEFAULT_XDG_STATE_HOME
 
-/* Default log dir under XDG_DATA_HOME */
-#mesondefine DEFAULT_XDG_DATA_HOME_LOGDIR
+/* Default log dir under XDG_STATE_HOME */
+#mesondefine DEFAULT_XDG_STATE_HOME_LOGDIR
 
 /* Building DRI-capable DDX. */
 #mesondefine XF86DRI

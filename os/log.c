@@ -105,7 +105,7 @@ OR PERFORMANCE OF THIS SOFTWARE.
 #include "opaque.h"
 
 #ifdef XF86BIGFONT
-#include "xf86bigfontsrv.h"
+#include "Xext/xf86bigfont/xf86bigfontsrv.h"
 #endif
 
 #ifdef __clang__
@@ -136,7 +136,9 @@ static char __crashreporter_info_buff__[4096] = { 0 };
 
 static const char *__crashreporter_info__ __attribute__ ((__used__)) =
     &__crashreporter_info_buff__[0];
+/* NOLINTBEGIN(hicpp-no-assembler) */
 asm(".desc ___crashreporter_info__, 0x10");
+/* NOLINTEND(hicpp-no-assembler) */
 #endif
 
 /* Prefix strings for log messages. */
@@ -218,7 +220,7 @@ static inline void doLogSync(void) {
 
 static void initSyslog(void) {
 #ifdef CONFIG_SYSLOG
-    char buffer[4096];
+    static char buffer[4096];
     strcpy(buffer, xorgSyslogIdent);
 
     snprintf(buffer, sizeof(buffer), "%s :%s", xorgSyslogIdent, (display ? display : "<>"));
