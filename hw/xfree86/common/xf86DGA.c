@@ -36,11 +36,9 @@
  * someone actually cares about DGA, it'd be nice to clean this up.  But trust
  * me, I am not that person.
  */
-
-#ifdef HAVE_XORG_CONFIG_H
 #include <xorg-config.h>
-#endif
 
+#include <assert.h>
 #include <string.h>
 #include <X11/X.h>
 #include <X11/Xproto.h>
@@ -53,6 +51,7 @@
 #include "dix/request_priv.h"
 #include "dix/screen_hooks_priv.h"
 #include "include/extinit.h"
+#include "include/misc.h"
 #include "mi/mi_priv.h"
 
 #include "xf86.h"
@@ -69,7 +68,6 @@
 #include "xf86Xinput.h"
 #include "eventstr.h"
 #include "xf86Extensions.h"
-#include "misc.h"
 #include "dixstruct.h"
 #include "extnsionst.h"
 #include "cursorstr.h"

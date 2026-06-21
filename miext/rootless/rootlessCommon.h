@@ -27,22 +27,16 @@
  * holders shall not be used in advertising or otherwise to promote the sale,
  * use or other dealings in this Software without prior written authorization.
  */
-
 #ifndef _ROOTLESSCOMMON_H
 #define _ROOTLESSCOMMON_H
 
-#ifdef HAVE_DIX_CONFIG_H
-#include <dix-config.h>
-#endif
-
 #include <stdint.h>
 
-#include "misc.h"
+#include "include/misc.h"
+
 #include "rootless.h"
 #include "fb.h"
-
 #include "scrnintstr.h"
-
 #include "picturestr.h"
 
 // Debug output, or not.

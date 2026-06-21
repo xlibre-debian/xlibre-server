@@ -31,10 +31,7 @@
  *		Harold L Hunt II
  *              Colin Harrison
  */
-
-#ifdef HAVE_XWIN_CONFIG_H
 #include <xwin-config.h>
-#endif
 
 #include "win.h"
 
@@ -1238,7 +1235,7 @@ winTopLevelWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     ret = DefWindowProc(hwnd, message, wParam, lParam);
     /*
-     * If the window was minized we get the stack change before the window is restored
+     * If the window was minimized we get the stack change before the window is restored
      * and so it gets lost. Ensure there stacking order is correct.
      */
     if (needRestack)

@@ -103,6 +103,7 @@ Equipment Corporation.
 
 #include <dix-config.h>
 
+#include <assert.h>
 #include <X11/X.h>
 #include <X11/extensions/ge.h>
 #include <X11/extensions/XKBproto.h>
@@ -133,16 +134,17 @@ Equipment Corporation.
 #include "dix/screenint_priv.h"
 #include "dix/window_priv.h"
 #include "include/extinit.h"
+#include "include/misc.h"
 #include "os/bug_priv.h"
 #include "os/client_priv.h"
 #include "os/fmt.h"
 #include "os/log_priv.h"
 #include "os/probes_priv.h"
-#include "Xext/panoramiX.h"
-#include "Xext/panoramiXsrv.h"
-#include "xkb/xkbsrv_priv.h"
+#include "Xext/panoramiX/panoramiX.h"
+#include "Xext/panoramiX/panoramiXsrv.h"
+#include "Xext/xinput/exglobals.h"
+#include "Xext/xkeyboard/xkbsrv_priv.h"
 
-#include "misc.h"
 #include "resource.h"
 #include "windowstr.h"
 #include "inputstr.h"
@@ -151,7 +153,6 @@ Equipment Corporation.
 #include "dixstruct.h"
 #include "globals.h"
 #include "xace.h"
-#include "exglobals.h"
 #include "extnsionst.h"
 #include "dispatch.h"
 #include "dixstruct_priv.h"
@@ -1509,7 +1510,7 @@ CurrentOrOldMasterKeyboard(DeviceIntPtr dev)
         if (!kbd)
             return NULL;
         /* if dev is a pointer the saved master is a master pointer,
-         * we want the keybard */
+         * we want the keyboard */
         return GetMaster(kbd, MASTER_KEYBOARD);
     }
 
@@ -3357,8 +3358,7 @@ InitializeSprite(DeviceIntPtr pDev, WindowPtr pWin)
         pSprite->pDequeueScreen = pSprite->pEnqueueScreen;
     }
     pCursor = RefCursor(pCursor);
-    if (pSprite->current)
-        FreeCursor(pSprite->current, None);
+    FreeCursor(pSprite->current, None);
     pSprite->current = pCursor;
 
     if (pScreen) {
@@ -3393,8 +3393,7 @@ InitializeSprite(DeviceIntPtr pDev, WindowPtr pWin)
 void FreeSprite(DeviceIntPtr dev)
 {
     if (DevHasCursor(dev) && dev->spriteInfo->sprite) {
-        if (dev->spriteInfo->sprite->current)
-            FreeCursor(dev->spriteInfo->sprite->current, None);
+        FreeCursor(dev->spriteInfo->sprite->current, None);
         free(dev->spriteInfo->sprite->spriteTrace);
         free(dev->spriteInfo->sprite);
     }
@@ -3440,8 +3439,7 @@ UpdateSpriteForScreen(DeviceIntPtr pDev, ScreenPtr pScreen)
     pSprite->hotLimits.y2 = pScreen->height;
     pSprite->win = win;
     pCursor = RefCursor(wCursor(win));
-    if (pSprite->current)
-        FreeCursor(pSprite->current, 0);
+    FreeCursor(pSprite->current, 0);
     pSprite->current = pCursor;
     pSprite->spriteTraceGood = 1;
     pSprite->spriteTrace[0] = win;
@@ -5112,8 +5110,7 @@ ProcChangeActivePointerGrab(ClientPtr client)
     oldCursor = grab->cursor;
     grab->cursor = RefCursor(newCursor);
     PostNewCursor(device);
-    if (oldCursor)
-        FreeCursor(oldCursor, (Cursor) 0);
+    FreeCursor(oldCursor, (Cursor) 0);
     grab->eventMask = stuff->eventMask;
     return Success;
 }
@@ -5699,9 +5696,18 @@ ProcGrabKey(ClientPtr client)
 int
 ProcGrabButton(ClientPtr client)
 {
-    WindowPtr pWin, confineTo;
-
     REQUEST(xGrabButtonReq);
+    REQUEST_SIZE_MATCH(xGrabButtonReq);
+
+    if (client->swapped) {
+        swapl(&stuff->grabWindow);
+        swaps(&stuff->eventMask);
+        swapl(&stuff->confineTo);
+        swapl(&stuff->cursor);
+        swaps(&stuff->modifiers);
+    }
+
+    WindowPtr pWin, confineTo;
     CursorPtr cursor;
     GrabPtr grab;
     DeviceIntPtr ptr, modifierDevice;
@@ -5710,7 +5716,6 @@ ProcGrabButton(ClientPtr client)
     GrabParameters param;
     int rc;
 
-    REQUEST_SIZE_MATCH(xGrabButtonReq);
     UpdateCurrentTime();
     if ((stuff->pointerMode != GrabModeSync) &&
         (stuff->pointerMode != GrabModeAsync)) {

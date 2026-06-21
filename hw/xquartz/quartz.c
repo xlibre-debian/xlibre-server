@@ -36,13 +36,13 @@
 #include "dix/dix_priv.h"
 #include "dix/screenint_priv.h"
 #include "miext/extinit_priv.h"
+#include "Xext/pseudoramiX/pseudoramiX.h"
 
 #include "quartzRandR.h"
 #include "inputstr.h"
 #include "quartz.h"
 #include "darwin.h"
 #include "darwinEvents.h"
-#include "pseudoramiX.h"
 #include "extension.h"
 #include "glx_extinit.h"
 #define _APPLEWM_SERVER_
@@ -64,6 +64,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <AvailabilityMacros.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <libkern/OSAtomic.h>
 #include <signal.h>
@@ -73,12 +74,14 @@
 
 // These are vended by the Objective-C runtime, but they are unfortunately
 // not available as API in the macOS SDK.  We are following suit with swift
-// and clang in declaring them inline here.  They canot be removed or changed
+// and clang in declaring them inline here.  They cannot be removed or changed
 // in the OS without major bincompat ramifications.
 //
 // These were added in macOS 10.7.
+#if defined(__clang__) && (MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
 void * _Nonnull objc_autoreleasePoolPush(void);
 void objc_autoreleasePoolPop(void * _Nonnull context);
+#endif
 
 DevPrivateKeyRec quartzScreenKeyRec;
 int aquaMenuBarHeight = 0;
@@ -160,12 +163,14 @@ QuartzSetupScreen(int index,
 static void
 QuartzBlockHandler(void *blockData, void *pTimeout)
 {
+#if defined(__clang__) && (MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
     static void *poolToken = NULL;
 
     if (poolToken) {
         objc_autoreleasePoolPop(poolToken);
     }
     poolToken = objc_autoreleasePoolPush();
+#endif
 }
 
 /*
@@ -466,8 +471,6 @@ QuartzShow(void)
 void
 QuartzHide(void)
 {
-    int i;
-
     if (XQuartzServerVisible) {
         DIX_FOR_EACH_SCREEN({ quartzProcs->SuspendScreen(walkScreen); });
     }

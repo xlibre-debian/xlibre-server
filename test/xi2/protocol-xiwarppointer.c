@@ -29,18 +29,19 @@
 /*
  * Protocol testing for XIWarpPointer request.
  */
+#include <assert.h>
 #include <stdint.h>
 #include <X11/X.h>
 #include <X11/Xproto.h>
 #include <X11/extensions/XI2proto.h>
 
-#include "Xi/handlers.h"
+#include "Xext/xinput/handlers.h"
 
 #include "inputstr.h"
 #include "windowstr.h"
 #include "scrnintstr.h"
 #include "exevents.h"
-#include "exglobals.h"
+#include "Xext/xinput/exglobals.h"
 
 #include "protocol-common.h"
 

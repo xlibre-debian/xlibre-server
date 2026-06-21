@@ -15,8 +15,14 @@ else
 endif
 
 xwin_c_args = []
-xwin_c_args += '-DHAVE_XWIN_CONFIG_H'
 xwin_c_args += '-Wno-bad-function-cast'
+
+# mingw lacking setenv(), so we need to do it on our own
+if cc.has_function('setenv',
+                   prefix : '#include <stdlib.h>',
+                   args : ['-D_XOPEN_SOURCE=600'])
+    xwin_c_args += '-DHAVE_SETENV'
+endif
 
 srcs_windows = [
     'winclipboardinit.c',
@@ -157,7 +163,7 @@ executable(
         libxserver,
         libxserver_glx,
         libglxvnd,
-        libxserver_xkb_stubs,
+        libxserver_xkeyboard_stubs,
         libxserver_miext_shadow,
         libxserver_pseudoramix,
         libxserver_xi_stubs,

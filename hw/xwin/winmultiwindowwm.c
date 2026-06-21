@@ -29,11 +29,9 @@
  * Authors:	Kensuke Matsuzaki
  *              Colin Harrison
  */
-
-/* X headers */
-#ifdef HAVE_XWIN_CONFIG_H
 #include <xwin-config.h>
-#endif
+
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -1394,13 +1392,13 @@ winMultiWindowXMsgProc(void *pArg)
  * the Window Manager thread.  Called from
  * winscrinit.c/winFinishScreenInitFB ().
  */
-
-Bool
-winInitWM(void **ppWMInfo,
-          pthread_t * ptWMProc,
-          pthread_t * ptXMsgProc,
-          pthread_mutex_t * ppmServerStarted,
-          int dwScreen, HWND hwndScreen, Bool compositeWM)
+bool winInitWM(void **ppWMInfo,
+               pthread_t *ptWMProc,
+               pthread_t *ptXMsgProc,
+               pthread_mutex_t *ppmServerStarted,
+               int dwScreen,
+               HWND hwndScreen,
+               bool compositeWM)
 {
     WMProcArgPtr pArg = calloc(1, sizeof(WMProcArgRec));
     WMInfoPtr pWMInfo = calloc(1, sizeof(WMInfoRec));
@@ -1417,7 +1415,7 @@ winInitWM(void **ppWMInfo,
 
     /* Set a return pointer to the Window Manager info structure */
     *ppWMInfo = pWMInfo;
-    pWMInfo->fCompositeWM = compositeWM;
+    pWMInfo->fCompositeWM = (!!compositeWM);
 
     /* Setup the argument structure for the thread function */
     pArg->dwScreen = dwScreen;

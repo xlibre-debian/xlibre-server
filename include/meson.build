@@ -99,21 +99,21 @@ conf_data.set('HAVE_XSHMFENCE', xshmfence_dep.found() ? '1' : false)
 conf_data.set('WITH_LIBDRM', libdrm_required ? '1' : false)
 conf_data.set('LIBDRM_HAS_PLANE_SIZE_HINTS', libdrm_required ? libdrm_dep.version().version_compare('>= 2.4.122') : false)
 conf_data.set('GLAMOR_HAS_EGL', epoxy_dep.found() ? '1' : false)
-conf_data.set('GLAMOR_HAS_EGL_QUERY_DMABUF',
-              epoxy_dep.found() and epoxy_dep.version().version_compare('>= 1.4.4') ? '1' : false)
-conf_data.set('GLAMOR_HAS_EGL_QUERY_DRIVER',
-              epoxy_dep.found() and epoxy_dep.version().version_compare('>= 1.5.4') ? '1' : false)
 conf_data.set('GLXEXT', build_glx ? '1' : false)
 conf_data.set('GLAMOR', build_glamor ? '1' : false)
-conf_data.set('GLAMOR_HAS_GBM', gbm_dep.found() ? '1' : false)
-conf_data.set('GLAMOR_HAS_GBM_LINEAR',
-              build_glamor and gbm_dep.found() and gbm_dep.version().version_compare('>= 10.6') ? '1' : false)
+conf_data.set('GLAMOR_HAS_GBM', build_gbm ? '1' : false)
 conf_data.set('GBM_BO_WITH_MODIFIERS',
-              build_glamor and gbm_dep.found() and gbm_dep.version().version_compare('>= 17.1') ? '1' : false)
+              build_glamor and build_gbm and gbm_dep.version().version_compare('>= 17.1') ? '1' : false)
+conf_data.set('GBM_BO_FD',
+              build_glamor and gbm_dep.found() and cc.has_header_symbol('gbm.h', 'gbm_bo_get_fd', dependencies : gbm_dep )  ? '1' : false)
 conf_data.set('GBM_BO_FD_FOR_PLANE',
-              build_glamor and gbm_dep.found() and gbm_dep.version().version_compare('>= 21.1') ? '1' : false)
+              build_glamor and build_gbm and gbm_dep.version().version_compare('>= 21.1') ? '1' : false)
 conf_data.set('GBM_BO_WITH_MODIFIERS2',
-              build_glamor and gbm_dep.found() and gbm_dep.version().version_compare('>= 21.3') ? '1' : false)
+              build_glamor and build_gbm and gbm_dep.version().version_compare('>= 21.3') ? '1' : false)
+conf_data.set('GBM_HAVE_BO_USE_LINEAR',
+              build_glamor and build_gbm and cc.has_header_symbol('gbm.h', 'GBM_BO_USE_LINEAR', dependencies : gbm_dep )  ? '1' : false)
+conf_data.set('GBM_HAVE_BO_USE_FRONT_RENDERING',
+              build_glamor and build_gbm and cc.has_header_symbol('gbm.h','GBM_BO_USE_FRONT_RENDERING', dependencies: gbm_dep ) ? '1' : false)
 
 conf_data.set_quoted('SERVER_MISC_CONFIG_PATH', serverconfigdir)
 conf_data.set_quoted('PROJECTROOT', get_option('prefix'))
@@ -169,8 +169,6 @@ conf_data.set('HAVE_SIGPROCMASK', cc.has_function('sigprocmask') ? '1' : false)
 # HAVE_SOCKLEN_T is used by xtrans when IPv6 is disabled
 conf_data.set('HAVE_SOCKLEN_T', cc.has_type('socklen_t', prefix: '#include <sys/socket.h>') ? '1' : false)
 conf_data.set('HAVE_STRCASESTR', cc.has_function('strcasestr') ? '1' : false)
-conf_data.set('HAVE_STRLCAT', cc.has_function('strlcat', dependencies: libbsd_dep) ? '1' : false)
-conf_data.set('HAVE_STRLCPY', cc.has_function('strlcpy', dependencies: libbsd_dep) ? '1' : false)
 conf_data.set('HAVE_STRNDUP', cc.has_function('strndup') and cc.has_header_symbol('string.h', 'strndup') ? '1' : false)
 # HAVE_STRUCT_SOCKADDR_STORAGE is used by xtrans >= 1.6
 conf_data.set('HAVE_STRUCT_SOCKADDR_STORAGE', cc.has_type('struct sockaddr_storage', prefix: '#include <sys/socket.h>') ? '1' : false)
@@ -203,8 +201,9 @@ conf_data.set(
   'BSD44SOCKETS',
   cc.has_member(
      'struct sockaddr_in', 'sin_len',
-     prefix: ['#include <sys/types.h>', '#include <sys/socket.h>',
-              '#include <netinet/in.h>'],
+     prefix: '''#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>''',
   )  ? '1' : false,
   description: 'Define to 1 if `struct sockaddr_in\' has a `sin_len\' member',
 )
@@ -350,6 +349,8 @@ endif
 conf_data.set('XSERVER_PLATFORM_BUS', build_udev_kms ? '1' : false)
 conf_data.set('XSERVER_SCREEN_VRR', '1')
 
+conf_data.set_quoted('DEFAULT_LOGDIR', log_dir)
+
 version_data = configuration_data()
 version_data.set('VENDOR_RELEASE', '@0@'.format(release))
 version_data.set_quoted('VENDOR_MAN_VERSION', 'Version @0@.@1@.@2@'.format(major, minor, patch))
@@ -377,8 +378,8 @@ xorg_data.set('XORG_VERSION_CURRENT', release)
 xorg_data.set_quoted('XF86CONFIGFILE', 'xorg.conf')
 xorg_data.set_quoted('XCONFIGFILE', 'xorg.conf')
 xorg_data.set_quoted('XCONFIGDIR', 'xorg.conf.d')
-xorg_data.set_quoted('DEFAULT_XDG_DATA_HOME', '.local/share')
-xorg_data.set_quoted('DEFAULT_XDG_DATA_HOME_LOGDIR', 'xorg')
+xorg_data.set_quoted('DEFAULT_XDG_STATE_HOME', '.local/state')
+xorg_data.set_quoted('DEFAULT_XDG_STATE_HOME_LOGDIR', 'xorg')
 xorg_data.set_quoted('DEFAULT_LOGDIR', log_dir)
 xorg_data.set_quoted('DEFAULT_LOGPREFIX', 'Xorg.')
 xorg_data.set_quoted('DEFAULT_MODULE_PATH', join_paths(get_option('prefix'), module_dir))
@@ -408,9 +409,6 @@ elif host_machine.system() == 'netbsd' or host_machine.system() == 'openbsd'
 endif
 
 xwin_data = configuration_data()
-xwin_data.set_quoted('DEFAULT_LOGDIR', log_dir)
-xwin_data.set('HAS_WINSOCK', host_machine.system() == 'windows' ? '1' : false,
-              description: 'Use Windows sockets')
 xwin_data.set('HAS_DEVWINDOWS', host_machine.system() == 'cygwin' ? '1' : false,
               description: 'Has /dev/windows for signaling new win32 messages')
 xwin_data.set('RELOCATE_PROJECTROOT', host_machine.system() == 'windows' ? '1' : false,
@@ -432,62 +430,151 @@ if with_dtrace
     dtrace_hdr += dtrace_header.process(dtrace_tmpl)
 endif
 
-if build_xorg
+if build_xorg_sdk
     install_data(
         [
             'Xprintf.h',
             'callback.h',
-            'closure.h',
             'colormap.h',
             'colormapst.h',
+            'compiler.h',
+            'compositeext.h',
             'cursor.h',
             'cursorstr.h',
+            'damage.h',
+            'damagestr.h',
             'dix.h',
             'dixaccess.h',
             'dixfont.h',
             'dixfontstr.h',
             'dixstruct.h',
+            'dri.h',
+            'dri2.h',
+            'dri3.h',
+            'dristruct.h',
+            'edid.h',
             'events.h',
+            'exa.h',
             'exevents.h',
             'extension.h',
             'extinit.h',
             'extnsionst.h',
+            'fb.h',
+            'fbdevhw.h',
+            'fboverlay.h',
+            'fbpict.h',
+            'fbrop.h',
+            'wfbrename.h',
             'fd_notify.h',
             'fourcc.h',
             'gc.h',
             'gcstruct.h',
+            'glamor.h',
             'globals.h',
             'glxvndabi.h',
+            'xf86i2c.h',
+            'i2c_def.h',
             'input.h',
             'inputstr.h',
             'list.h',
+            'micmap.h',
+            'micoord.h',
+            'migc.h',
+            'mi.h',
+            'miline.h',
+            'mioverlay.h',
+            'mipointer.h',
+            'mipointrst.h',
+            'mistruct.h',
+            'mizerarc.h',
             'misc.h',
             'miscstruct.h',
+            'misync.h',
+            'misyncfd.h',
+            'misyncshm.h',
+            'misyncstr.h',
             'opaque.h',
             'optionstr.h',
             'os.h',
+            'glyphstr.h',
+            'mipict.h',
+            'picture.h',
+            'picturestr.h',
+            'present.h',
             'pixmap.h',
             'pixmapstr.h',
             'privates.h',
             'property.h',
             'ptrveloc.h',
+            'randrstr.h',
+            'rrtransform.h',
             'region.h',
             'regionstr.h',
             'resource.h',
             'rgb.h',
+            'sarea.h',
             'screenint.h',
             'scrnintstr.h',
             'servermd.h',
+            'shadow.h',
+            'shadowfb.h',
+            'syncsdk.h',
             'validate.h',
             'displaymode.h',
+            'vndserver.h',
             'window.h',
             'windowstr.h',
+            'vgaHW.h',
+            'xaarop.h',
+            'xf86.h',
+            'xf86cmap.h',
+            'xf86Cursor.h',
+            'xf86DDC.h',
+            'xf86fbman.h',
+            'xf86Opt.h',
+            'xf86Optionstr.h',
+            'xf86platformBus.h',
+            'xf86Parser.h',
+            'xf86Optrec.h',
+            'xf86Priv.h',
+            'xf86Privstr.h',
+            'xf86str.h',
+            'xf86Module.h',
+            'xf86Xinput.h',
+            'xf86sbusBus.h',
+            'xf86Pci.h',
+            'xf86_OSlib.h',
+            'xf86_OSproc.h',
+            'xisb.h',
             'xkbsrv.h',
             'xkbstr.h',
             'xkbrules.h',
+            'xorgVersion.h',
             'Xprintf.h',
+            'xvdix.h',
+            'xvmcext.h',
             'xserver-properties.h',
+            'xlibre_ptrtypes.h',
+            'xf86Crtc.h',
+            'xf86Modes.h',
+            'xf86RandR12.h',
         ],
         install_dir: xorgsdkdir,
     )
+
+    if build_dga
+        install_data(['dgaproc.h'], install_dir: xorgsdkdir)
+    endif
+
+    if build_xv
+        install_data(['xf86xv.h', 'xf86xvmc.h'], install_dir: xorgsdkdir)
+    endif
+
+    if build_mitshm
+        install_data(['shmint.h'], install_dir: xorgsdkdir)
+    endif
+
+    if int10 != 'false'
+        install_data(['xf86int10.h', 'vbe.h', 'vbeModes.h'], install_dir: xorgsdkdir)
+    endif
 endif

@@ -27,16 +27,13 @@
  *
  * Authors:	Harold L Hunt II
  */
-
-#ifdef HAVE_XWIN_CONFIG_H
 #include <xwin-config.h>
-#endif
 
 #include "winauth.h"
 #include "winmsg.h"
 
 /* Includes for authorization */
-#include "securitysrv.h"
+#include "security/securitysrv.h"
 #include "os/osdep.h"
 #include "os/mitauth.h"
 

@@ -49,6 +49,7 @@ SOFTWARE.
 
 #include <X11/Xproto.h>
 
+#include "xlibre_ptrtypes.h"
 #include "misc.h"
 #include "regionstr.h"
 #include "screenint.h"
@@ -71,7 +72,6 @@ struct _DeviceIntRec;
 struct _Cursor;
 
 typedef struct _BackingStore *BackingStorePtr;
-typedef struct _Window *WindowPtr;
 typedef struct _Property *PropertyPtr;
 
 enum RootClipMode {

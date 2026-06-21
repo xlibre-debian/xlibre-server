@@ -26,6 +26,8 @@
 
 #include <dix-config.h>
 
+#include <assert.h>
+
 /*
  * Protocol testing for XIPassiveGrab request.
  */
@@ -35,12 +37,12 @@
 #include <X11/extensions/XI2proto.h>
 
 #include "dix/exevents_priv.h"
-#include "Xi/handlers.h"
+#include "Xext/xinput/handlers.h"
 
 #include "inputstr.h"
 #include "windowstr.h"
 #include "scrnintstr.h"
-#include "exglobals.h"
+#include "Xext/xinput/exglobals.h"
 
 #include "protocol-common.h"
 
@@ -153,7 +155,7 @@ request_XIPassiveGrabDevice(ClientPtr client, xXIPassiveGrabDeviceReq * req,
        client->req_len (see above). We previously had to swap it here, so
        that ProcXIPassiveGrabDevice() will swap it back. Since that's gone
        now, still swapping itself would break if this function is called
-       again and writing back a errornously swapped value
+       again and writing back a erroneously swapped value
     */
 
     swapl(&req->time);

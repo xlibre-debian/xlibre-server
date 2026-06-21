@@ -35,10 +35,10 @@
 
 #include <assert.h>
 
+#include "include/mipict.h"
 #include "os/bug_priv.h"
 
 #include "glamor_priv.h"
-#include "mipict.h"
 #include "fbpict.h"
 #if 0
 //#define DEBUGF(str, ...)  do {} while(0)
@@ -106,7 +106,7 @@ glamor_create_composite_fs(glamor_screen_private *glamor_priv, struct shader_key
         "	} \n"
         "	return rel_tex; \n"
         "}\n";
-    /* The texture and the pixmap size is not match eaxctly, so can't sample it directly.
+    /* The texture and the pixmap size is not match exactly, so can't sample it directly.
      * rel_sampler will recalculate the texture coords.*/
     const char *rel_sampler =
         " vec4 rel_sampler_rgba(sampler2D tex_image, vec2 tex, vec4 wh, int repeat)\n"

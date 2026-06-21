@@ -29,10 +29,7 @@
  * the sale, use or other dealings in this Software without prior written
  * authorization from the copyright holder(s) and author(s).
  */
-
-#ifdef HAVE_XORG_CONFIG_H
 #include <xorg-config.h>
-#endif
 
 #include <stdlib.h>
 #include <errno.h>
@@ -55,12 +52,17 @@
 #include "config/hotplug_priv.h"
 #include "dix/input_priv.h"
 #include "dix/screenint_priv.h"
+#include "include/xf86DDC.h"
+#include "include/xorgVersion.h"
 #include "mi/mi_priv.h"
 #include "os/cmdline.h"
 #include "os/ddx_priv.h"
 #include "os/log_priv.h"
 #include "os/osdep.h"
-#include "randr/randrstr_priv.h"
+#ifdef DPMSExtension
+#include "Xext/dpms/dpms_priv.h"
+#endif
+#include "Xext/randr/randrstr_priv.h"
 
 #include "servermd.h"
 #include "windowstr.h"
@@ -78,10 +80,8 @@
 #include "xf86_os_support.h"
 #include "xf86_OSlib.h"
 #include "xf86cmap.h"
-#include "xorgVersion.h"
 #include "mipointer.h"
 #include "xf86Extensions.h"
-#include "xf86DDC.h"
 #include "xf86Xinput.h"
 #include "xf86InPriv.h"
 #include "xf86Crtc.h"
@@ -92,7 +92,6 @@
 
 #ifdef DPMSExtension
 #include <X11/extensions/dpmsconst.h>
-#include "dpmsproc.h"
 #endif
 
 #ifdef __linux__
@@ -440,12 +439,12 @@ InitOutput(int argc, char **argv)
 	if (want_hw_access)
 	    xorgHWAccess = xf86EnableIO();
 
-        if (xf86BusConfig() == FALSE)
+        if (xf86BusConfig(xf86Info.singleDriver) == FALSE)
             return;
 
 
         /*
-         * Sort the drivers to match the requested ording.  Using a slow
+         * Sort the drivers to match the requested ordering.  Using a slow
          * bubble sort.
          */
         for (j = 0; j < xf86NumScreens - 1; j++) {
@@ -589,8 +588,8 @@ InitOutput(int argc, char **argv)
     if (xf86Info.vtno >= 0)
         AddCallback(&RootWindowFinalizeCallback, AddVTAtoms, NULL);
 
-    if (SeatId)
-        AddCallback(&RootWindowFinalizeCallback, AddSeatId, SeatId);
+    if (dixSettingSeatId)
+        AddCallback(&RootWindowFinalizeCallback, AddSeatId, dixSettingSeatId);
 
     /*
      * Use the previously collected parts to setup screenInfo

@@ -26,6 +26,8 @@
 
 #include <dix-config.h>
 
+#include <assert.h>
+
 /*
  * Protocol testing for ChangeDeviceControl request.
  */
@@ -34,7 +36,7 @@
 #include <X11/Xproto.h>
 #include <X11/extensions/XIproto.h>
 
-#include "Xi/handlers.h"
+#include "Xext/xinput/handlers.h"
 
 #include "inputstr.h"
 

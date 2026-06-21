@@ -41,10 +41,7 @@
  *      Egbert Eich <eich@XFree86.Org>
  *      ... and others
  */
-
-#ifdef HAVE_XORG_CONFIG_H
 #include <xorg-config.h>
-#endif
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -57,7 +54,10 @@
 #include "include/extinit.h"
 #include "os/log_priv.h"
 #include "os/osdep.h"
-#include "xkb/xkbsrv_priv.h"
+#include "Xext/xkeyboard/xkbsrv_priv.h"
+#ifdef DPMSExtension
+#include "Xext/dpms/dpms_priv.h"
+#endif
 
 #include "xf86_priv.h"
 #include "xf86Modes.h"
@@ -75,9 +75,6 @@
 #include "xf86Xinput_priv.h"
 
 #include "picture.h"
-#ifdef DPMSExtension
-#include "dpmsproc.h"
-#endif
 
 /*
  * These paths define the way the config file search is done.  The escape
@@ -245,7 +242,7 @@ xf86ValidateFontPath(char *path)
         pointertype _l, _p;                                                                  \
                                                                                              \
         for (_l = (listhead), _p = NULL; !_p && _l; _l = (pointertype)_l->list.next) {       \
-            if (!_l->match_seat || (SeatId && xf86nameCompare(_l->match_seat, SeatId) == 0)) \
+            if (!_l->match_seat || (dixSettingSeatId && xf86nameCompare(_l->match_seat, dixSettingSeatId) == 0)) \
                 _p = _l;                                                                     \
         }                                                                                    \
                                                                                              \
@@ -657,6 +654,7 @@ typedef enum {
     FLAG_IGLX,
     FLAG_DEBUG,
     FLAG_ALLOW_BYTE_SWAPPED_CLIENTS,
+    FLAG_SINGLE_DRIVER,
 } FlagValues;
 
 /**
@@ -717,6 +715,8 @@ static OptionInfoRec FlagOptions[] = {
     {FLAG_DEBUG, "Debug", OPTV_STRING,
      {0}, FALSE},
     {FLAG_ALLOW_BYTE_SWAPPED_CLIENTS, "AllowByteSwappedClients", OPTV_BOOLEAN,
+     {0}, FALSE},
+    {FLAG_SINGLE_DRIVER, "SingleDriver", OPTV_BOOLEAN,
      {0}, FALSE},
     {-1, NULL, OPTV_NONE,
      {0}, FALSE},
@@ -814,6 +814,17 @@ configServerFlags(XF86ConfFlagsPtr flagsconf, XF86OptionPtr layoutopts)
     }
     LogMessageVerb(from, 1, "%sutomatically binding GPU devices\n",
                    xf86Info.autoBindGPU ? "A" : "Not a");
+
+    if (xf86IsOptionSet(FlagOptions, FLAG_SINGLE_DRIVER)) {
+        xf86GetOptValBool(FlagOptions, FLAG_SINGLE_DRIVER,
+                          &xf86Info.singleDriver);
+        from = X_CONFIG;
+    }
+    else {
+        from = X_DEFAULT;
+    }
+    LogMessageVerb(from, 1, "Allowing %s one driver to add non-GPU screens\n",
+                   xf86Info.singleDriver ? "only" : "more than");
 
     /*
      * Set things up based on the config file information.  Some of these

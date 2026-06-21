@@ -166,6 +166,7 @@ subdir('bigreq')
 subdir('damage')
 subdir('sync')
 subdir('bugs')
+subdir('pyxtest')
 
 if build_xorg
 # Tests that require at least some DDX functions in order to fully link
@@ -174,7 +175,7 @@ if build_xorg
      '../mi/miinitext.c',
      '../mi/miinitext.h',
      '../mi/micmap.c',
-     '../mi/micmap.h',
+     '../include/micmap.h',
      'fixes.c',
      'input.c',
      'list.c',

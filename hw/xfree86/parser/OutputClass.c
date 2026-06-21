@@ -22,10 +22,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  */
-
-#ifdef HAVE_XORG_CONFIG_H
 #include <xorg-config.h>
-#endif
 
 #include "os/fmt.h"
 
@@ -121,8 +118,9 @@ xf86parseOutputClassSection(void)
             if (xf86getSubToken(&(ptr->comment)) != XF86_TOKEN_STRING)
                 Error(QUOTE_MSG, "ModulePath");
             if (ptr->modulepath) {
-                char *path;
-                XNFasprintf(&path, "%s,%s", ptr->modulepath, xf86_lex_val.str);
+                char *path = NULL;
+                if (asprintf(&path, "%s,%s", ptr->modulepath, xf86_lex_val.str) == -1)
+                    FatalError("xf86parseOutputClassSection() malloc failed\n");
                 free(xf86_lex_val.str);
                 free(ptr->modulepath);
                 ptr->modulepath = path;

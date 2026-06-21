@@ -69,14 +69,14 @@ libxquartz_defs = [
 ]
 
 if cc.has_function('dispatch_async')
-    libxquartz_defs += '-DHAVE_LIBDISPATCH'
+    libxquartz_defs += '-DHAS_LIBDISPATCH'
 endif
 
 libXquartz = static_library('Xquartz',
     srcs_libxquartz,
     c_args: libxquartz_defs,
     objc_args: libxquartz_defs,
-    include_directories: [inc, '../../pseudoramiX', '../../miext/rootless', top_dir_inc],
+    include_directories: [inc, '../../miext/rootless', top_dir_inc],
     dependencies: [xproto_dep, xdmcp_dep, pixman_dep],
     link_with: [libxserver_pseudoramix, libxserver_miext_rootless],
 )

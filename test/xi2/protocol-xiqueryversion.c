@@ -37,6 +37,7 @@
  * Client version less than 2 must return BadValue.
  */
 
+#include <assert.h>
 #include <stdint.h>
 #include <X11/X.h>
 #include <X11/Xproto.h>
@@ -44,12 +45,12 @@
 
 #include "dix/exevents_priv.h"
 #include "miext/extinit_priv.h"            /* for XInputExtensionInit */
-#include "Xi/handlers.h"
+#include "Xext/xinput/handlers.h"
 
 #include "inputstr.h"
 #include "scrnintstr.h"
 #include "protocol-common.h"
-#include "exglobals.h"
+#include "Xext/xinput/exglobals.h"
 
 DECLARE_WRAP_FUNCTION(WriteToClient, void, ClientPtr client, int len, void *data);
 

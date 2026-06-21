@@ -114,15 +114,16 @@ Equipment Corporation.
 #include "dix/screenint_priv.h"
 #include "dix/window_priv.h"
 #include "include/extinit.h"
+#include "include/misc.h"
 #include "mi/mi_priv.h"         /* miPaintWindow */
 #include "os/auth.h"
 #include "os/client_priv.h"
 #include "os/osdep.h"
 #include "os/screensaver.h"
-#include "Xext/panoramiX.h"
-#include "Xext/panoramiXsrv.h"
+#include "Xext/composite/compint.h"
+#include "Xext/panoramiX/panoramiX.h"
+#include "Xext/panoramiX/panoramiXsrv.h"
 
-#include "misc.h"
 #include "scrnintstr.h"
 #include "os.h"
 #include "regionstr.h"
@@ -135,9 +136,7 @@ Equipment Corporation.
 #include "dixstruct.h"
 #include "gcstruct.h"
 #include "servermd.h"
-#include "mivalidate.h"
 #include "globals.h"
-#include "compint.h"
 #include "privates.h"
 #include "xace.h"
 
@@ -954,8 +953,7 @@ DisposeWindowOptional(WindowPtr pWin)
 
         pList = pWin->optional->deviceCursors;
         while (pList) {
-            if (pList->cursor)
-                FreeCursor(pList->cursor, (XID) 0);
+            FreeCursor(pList->cursor, (XID) 0);
             pPrev = pList;
             pList = pList->next;
             free(pPrev);
@@ -998,19 +996,18 @@ FreeWindowResources(WindowPtr pWin)
 static void
 CrushTree(WindowPtr pWin)
 {
-    WindowPtr pChild, pSib, pParent;
-    UnrealizeWindowProcPtr UnrealizeWindow;
+    WindowPtr pChild, pSib;
 
     if (!(pChild = pWin->firstChild))
         return;
-    UnrealizeWindow = pWin->drawable.pScreen->UnrealizeWindow;
     while (1) {
-        if (pChild->firstChild) {
+
+        /* go to a leaf node in the window tree */
+        while (pChild->firstChild)
             pChild = pChild->firstChild;
-            continue;
-        }
+
         while (1) {
-            pParent = pChild->parent;
+            WindowPtr pParent = pChild->parent;
             if (SubStrSend(pChild, pParent)) {
                 xEvent event = { .u.u.type = DestroyNotify };
                 event.u.destroyNotify.window = pChild->drawable.id;
@@ -1020,8 +1017,7 @@ CrushTree(WindowPtr pWin)
             pSib = pChild->nextSib;
             pChild->viewable = FALSE;
             if (pChild->realized) {
-                pChild->realized = FALSE;
-                (*UnrealizeWindow) (pChild);
+                dixScreenRaiseUnrealizeWindow(pChild);
             }
             FreeWindowResources(pChild);
             dixFreeObjectWithPrivates(pChild, PRIVATE_WINDOW);
@@ -1530,8 +1526,7 @@ ChangeWindowAttributes(WindowPtr pWin, Mask vmask, XID *vlist, ClientPtr client)
                 /* Can't free cursor until here - old cursor
                  * is needed in WindowHasNewCursor
                  */
-                if (pOldCursor)
-                    FreeCursor(pOldCursor, (Cursor) 0);
+                FreeCursor(pOldCursor, (Cursor) 0);
             }
             break;
         default:
@@ -2760,15 +2755,12 @@ static void
 UnrealizeTree(WindowPtr pWin, Bool fromConfigure)
 {
     WindowPtr pChild;
-    UnrealizeWindowProcPtr Unrealize;
     MarkUnrealizedWindowProcPtr MarkUnrealizedWindow;
 
-    Unrealize = pWin->drawable.pScreen->UnrealizeWindow;
     MarkUnrealizedWindow = pWin->drawable.pScreen->MarkUnrealizedWindow;
     pChild = pWin;
     while (1) {
         if (pChild->realized) {
-            pChild->realized = FALSE;
             pChild->visibility = VisibilityNotViewable;
 #ifdef XINERAMA
             if (!noPanoramiXExtension && !pChild->drawable.pScreen->myNum) {
@@ -2782,7 +2774,7 @@ UnrealizeTree(WindowPtr pWin, Bool fromConfigure)
                     win->u.win.visibility = VisibilityNotViewable;
             }
 #endif /* XINERAMA */
-            (*Unrealize) (pChild);
+            dixScreenRaiseUnrealizeWindow(pChild);
             DeleteWindowFromAnyEvents(pChild, FALSE);
             if (pChild->viewable) {
                 pChild->viewable = FALSE;
@@ -3496,8 +3488,7 @@ ChangeWindowDeviceCursor(WindowPtr pWin, DeviceIntPtr pDev, CursorPtr pCursor)
     if (pWin->realized)
         WindowHasNewCursor(pWin);
 
-    if (pOldCursor)
-        FreeCursor(pOldCursor, (Cursor) 0);
+    FreeCursor(pOldCursor, (Cursor) 0);
 
     /* FIXME: We SHOULD check for an error value here XXX
        (comment taken from ChangeWindowAttributes) */

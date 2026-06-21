@@ -30,13 +30,10 @@
  * Everything contained here is private to xf86Bus.c.  In particular the
  * video drivers must not include this file.
  */
-
 #ifndef _XF86_BUS_H
 #define _XF86_BUS_H
 
-#ifdef HAVE_XORG_CONFIG_H
-#include <xorg-config.h>
-#endif
+#include <X11/Xdefs.h>
 
 #include "xf86pciBus.h"
 #if defined(__sparc__) || defined(__sparc)
@@ -77,11 +74,12 @@ Bool xf86IsEntityPrimary(int entityIndex);
 _X_EXPORT /* only for internal int10 module - not supposed to be used by OOT drivers */
 ScrnInfoPtr xf86FindScreenForEntity(int entityIndex);
 
-Bool xf86BusConfig(void);
+Bool xf86BusConfig(Bool singleDriver);
 void xf86ClearEntityListForScreen(ScrnInfoPtr pScrn);
 void xf86RemoveDevFromEntity(int entityIndex, GDevPtr dev);
 
 Bool xf86CallDriverProbe(struct _DriverRec *drv, Bool detect_only);
 
 Bool xf86CheckSlot(const void *ptr, BusType type);
+
 #endif                          /* _XF86_BUS_H */

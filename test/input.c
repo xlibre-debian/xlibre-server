@@ -26,6 +26,7 @@
 
 #include <dix-config.h>
 
+#include <assert.h>
 #include <stdint.h>
 #include <X11/X.h>
 #include <X11/Xproto.h>
@@ -38,16 +39,15 @@
 #include "dix/exevents_priv.h"
 #include "dix/input_priv.h"
 #include "dix/inpututils_priv.h"
+#include "include/misc.h"
 #include "mi/mi_priv.h"
 #include "os/fmt.h"
 
-#include "misc.h"
 #include "resource.h"
 #include "windowstr.h"
 #include "inputstr.h"
-#include "exglobals.h"
+#include "Xext/xinput/exglobals.h"
 #include "eventstr.h"
-#include "assert.h"
 
 #include "tests-common.h"
 
@@ -117,7 +117,7 @@ dix_init_valuators(void)
     assert(axis->scroll.type == SCROLL_TYPE_HORIZONTAL);
     assert(axis->scroll.flags == 0);
 
-    /* can add another non-preffered axis */
+    /* can add another non-preferred axis */
     assert(SetScrollValuator
            (&dev, 1, SCROLL_TYPE_VERTICAL, 5.0, SCROLL_FLAG_NONE) == TRUE);
     assert(SetScrollValuator
@@ -879,7 +879,7 @@ dix_grab_matching(void)
     rc = GrabMatchesSecond(&b, &a, FALSE);
     assert(rc == FALSE);
 
-    /* XIAnyModifier or AnyModifer must succeed */
+    /* XIAnyModifier or AnyModifier must succeed */
     a.grabtype = XI2;
     b.grabtype = XI2;
     a.detail.exact = 1;

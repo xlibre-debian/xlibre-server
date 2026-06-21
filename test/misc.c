@@ -26,13 +26,14 @@
 
 #include <dix-config.h>
 
+#include <assert.h>
 #include <stdint.h>
 
 #include "dix/input_priv.h"
 #include "dix/screenint_priv.h"
+#include "include/misc.h"
 #include "os/fmt.h"
 
-#include "misc.h"
 #include "scrnintstr.h"
 #include "dix.h"
 #include "dixstruct.h"
