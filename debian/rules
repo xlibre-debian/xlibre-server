@@ -110,7 +110,7 @@ abibumpcheck: debian/serverminver
 	@echo Checking for the need of an ABI bump
 	# Build an updated version of the file:
 	head -1 $(SERVERMINVER) > $(SERVERMINVER).new
-	perl -ne 'print "$$1:$$2.$$3\n" if /^#define\s+(ABI_(?:VIDEODRV|XINPUT)_VERSION)\s+SET_ABI_VERSION\(\s*(\d+)\s*,\s*(\d+)\s*\)/' hw/xfree86/common/xf86Module.h|sort >> $(SERVERMINVER).new
+	perl -ne 'print "$$1:$$2.$$3\n" if /^#define\s+(ABI_(?:VIDEODRV|XINPUT)_VERSION)\s+SET_ABI_VERSION\(\s*(\d+)\s*,\s*(\d+)\s*\)/' include/xf86Module.h|sort >> $(SERVERMINVER).new
 	# Compare both files:
 	@if ! cmp --quiet $(SERVERMINVER) $(SERVERMINVER).new; then \
 	echo "serverminver bump required, ABI changed!";\
