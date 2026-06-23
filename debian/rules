@@ -65,8 +65,8 @@ ifeq ($(with_udeb),yes)
 endif
 
 	# torvalds was right?
-	rm -f debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia.conf
-	rm -f debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia-modules.conf
+	rm -f debian/tmp/main/usr/share/X11/xorg.conf.d/10-nvidia.conf
+	rm -f debian/tmp/main/usr/share/X11/xorg.conf.d/10-nvidia-modules.conf
 	mv debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia.conf.debian debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia-debian.conf
 	mv debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia-modules.conf.debian debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia-modules-debian.conf
 
