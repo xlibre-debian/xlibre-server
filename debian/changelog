@@ -1,3 +1,9 @@
+xlibre-server (2:25.2.0-2) unstable; urgency=medium
+
+  * Fix NVIDIA for the 3rd time.
+
+ -- NexusSfan <nexussfan@duck.com>  Tue, 23 Jun 2026 07:34:55 -0800
+
 xlibre-server (2:25.2.0-1) unstable; urgency=medium
 
   * New upstream version 25.2.0

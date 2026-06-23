@@ -64,6 +64,12 @@ ifeq ($(with_udeb),yes)
 		--destdir=debian/tmp/udeb
 endif
 
+	# torvalds was right?
+	rm -f debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia.conf
+	rm -f debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia-modules.conf
+	mv debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia.conf.debian debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia-debian.conf
+	mv debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia-modules.conf.debian debian/tmp/main/etc/X11/xorg.conf.d/10-nvidia-modules-debian.conf
+
 	# oh, yuck.
 	find debian/tmp/*/usr/lib/xorg -type f -name '*.la' -delete
 
